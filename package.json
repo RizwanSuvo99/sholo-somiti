@@ -1,0 +1,62 @@
+{
+  "name": "sholo-somiti",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3002",
+    "build": "prisma generate && next build",
+    "start": "next start -p 3002",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:reset": "prisma migrate reset --force",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "db:verify": "tsx scripts/verify-db-constraints.ts",
+    "test": "vitest run --project unit",
+    "test:watch": "vitest --project unit",
+    "test:tz": "for tz in UTC Asia/Dhaka America/New_York Pacific/Kiritimati; do echo \"--- TZ=$tz ---\"; TZ=$tz vitest run --project unit || exit 1; done",
+    "test:integration": "vitest run --project integration",
+    "test:component": "vitest run --project component",
+    "test:all": "vitest run"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "7.10.0",
+    "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.11.0",
+    "jose": "^6.2.12",
+    "next": "16.3.5",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "dotenv": "^18.0.1",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.5",
+    "fast-check": "^4.10.2",
+    "jsdom": "^30.1.0",
+    "prisma": "7.10.0",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^5.0.1"
+  },
+  "packageManager": "pnpm@10.33.1",
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}
