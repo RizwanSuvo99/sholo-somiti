@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: somiti-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: somiti
+      POSTGRES_PASSWORD: somiti_dev_password
+      POSTGRES_DB: somiti
+      # Keep the container on UTC; all Dhaka-local reasoning happens in src/lib/due-cycle.ts.
+      TZ: UTC
+      PGTZ: UTC
+    # 5432 on this host is already taken by an unrelated project's container.
+    ports:
+      - '5434:5432'
+    volumes:
+      - somiti-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U somiti -d somiti']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  somiti-pgdata:
