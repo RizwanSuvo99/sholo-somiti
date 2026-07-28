@@ -1,0 +1,328 @@
+// ষোলো সমবায় সমিতি — data model.
+//
+// Conventions:
+//   * camelCase fields mapped to snake_case columns.
+//   * All money is an integer number of paisa, in a column suffixed _paisa.
+//   * Calendar days people state (a sending date, a joining date) are @db.Date,
+//     which is timezone-free. Only true instants are @db.Timestamptz.
+//   * Members are never hard-deleted; isActive keeps historical ledgers intact.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ── Enums ───────────────────────────────────────────────────────────────────
+
+enum DuePaymentStatus {
+  PENDING
+  PAID_ON_TIME
+  PAID_LATE
+  UNPAID
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PaymentMedium {
+  NPSB
+  EFT
+  MOBILE_BANKING
+  CASH_DEPOSIT
+}
+
+enum MobileBankingProvider {
+  BKASH
+  NAGAD
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum IncomeCategory {
+  MONTHLY_DUE
+  FINE
+  OTHER_INCOME
+}
+
+enum ImportKind {
+  FINE_IMPORT
+  UNIFORM_DUE_IMPORT
+}
+
+// ── Models ──────────────────────────────────────────────────────────────────
+
+model Admin {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  name         String
+  passwordHash String    @map("password_hash")
+  /// Only ADMIN exists in v1. Kept so a member login can be added without a migration.
+  role         String    @default("ADMIN")
+  /// Bumping this invalidates every issued session immediately.
+  tokenVersion Int       @default(0) @map("token_version")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  reviewedSubmissions PaymentSubmission[] @relation("ReviewedBy")
+  transactions        Transaction[]
+  imports             HistoricalImport[]
+
+  @@map("admins")
+}
+
+model Member {
+  id         String  @id @default(uuid()) @db.Uuid
+  /// NHSS-25001. Allocated transactionally; see src/lib/services/members.ts.
+  memberCode String  @unique @map("member_code")
+  name       String
+  fatherName String? @map("father_name")
+  mobile     String?
+  email      String?
+  photoUrl   String? @map("photo_url")
+  /// Cloudinary public_id, needed to delete or re-transform the asset later.
+  photoPublicId String? @map("photo_public_id")
+
+  /// The day the member joined. Drives the member-code year digits and decides
+  /// which cycle first bills them; distinct from createdAt, which is when the
+  /// row was typed in (historical members are backdated).
+  joinedOn      DateTime  @map("joined_on") @db.Date
+  isActive      Boolean   @default(true) @map("is_active")
+  deactivatedOn DateTime? @map("deactivated_on") @db.Date
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  duePayments  DuePayment[]
+  submissions  PaymentSubmission[]
+  transactions Transaction[]
+
+  @@index([isActive])
+  @@index([name])
+  @@map("members")
+}
+
+model MonthlyDueSetting {
+  id          String   @id @default(uuid()) @db.Uuid
+  month       Int
+  year        Int
+  amountPaisa Int      @map("amount_paisa")
+  note        String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([year, month])
+  @@map("monthly_due_settings")
+}
+
+/// One row per member per due month. `month`/`year` are the *due* month under the
+/// 21st–20th cycle, not the calendar month money changed hands.
+model DuePayment {
+  id       String @id @default(uuid()) @db.Uuid
+  memberId String @map("member_id") @db.Uuid
+  month    Int
+  year     Int
+
+  /// Snapshotted from MonthlyDueSetting at generation time, so later edits to the
+  /// setting cannot rewrite history.
+  amountDuePaisa  Int @default(0) @map("amount_due_paisa")
+  amountPaidPaisa Int @default(0) @map("amount_paid_paisa")
+  /// Fine charged. Separate from finePaidPaisa because a levied fine is a
+  /// receivable, not cash — the dashboard counts only what was collected.
+  finePaisa       Int @default(0) @map("fine_paisa")
+  finePaidPaisa   Int @default(0) @map("fine_paid_paisa")
+
+  paidAt DateTime?        @map("paid_at") @db.Timestamptz(3)
+  status DuePaymentStatus @default(PENDING)
+  note   String?
+
+  /// The member submission this was settled from, if any. Unique, so one proof
+  /// can never back two months.
+  sourceSubmissionId String? @unique @map("source_submission_id") @db.Uuid
+  importBatchId      String? @map("import_batch_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  member           Member             @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  sourceSubmission PaymentSubmission? @relation(fields: [sourceSubmissionId], references: [id], onDelete: SetNull)
+  importBatch      HistoricalImport?  @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  transactions     Transaction[]
+
+  /// The backbone of rollover idempotency: re-running the job cannot create a
+  /// second row for the same member and month.
+  @@unique([memberId, year, month])
+  @@index([year, month, status])
+  @@index([status])
+  @@map("due_payments")
+}
+
+/// A member-submitted payment proof, awaiting admin review.
+model PaymentSubmission {
+  id       String @id @default(uuid()) @db.Uuid
+  memberId String @map("member_id") @db.Uuid
+
+  /// Name and code as given at submission time, kept even if the member record
+  /// is later edited — this is a record of what was claimed.
+  name               String
+  memberCodeSnapshot String @map("member_code_snapshot")
+
+  sendingDate    DateTime      @map("sending_date") @db.Date
+  amountPaisa    Int           @map("amount_paisa")
+  transactionRef String        @map("transaction_ref")
+  paymentMedium  PaymentMedium @map("payment_medium")
+
+  bankName              String?                @map("bank_name")
+  mobileBankingProvider MobileBankingProvider? @map("mobile_banking_provider")
+  mobileBankingNumber   String?                @map("mobile_banking_number")
+
+  screenshotUrl      String  @map("screenshot_url")
+  screenshotPublicId String? @map("screenshot_public_id")
+
+  /// Which month's due this pays. Defaults to the month derived from sendingDate,
+  /// but the member may select an earlier unpaid month — that is what makes a
+  /// PAID_LATE settlement reachable.
+  dueMonth Int @map("due_month")
+  dueYear  Int @map("due_year")
+
+  status          SubmissionStatus @default(PENDING)
+  reviewedById    String?          @map("reviewed_by") @db.Uuid
+  reviewedAt      DateTime?        @map("reviewed_at") @db.Timestamptz(3)
+  rejectionReason String?          @map("rejection_reason")
+
+  /// Hashed, for abuse forensics on an unauthenticated endpoint. Not PII.
+  submitterIpHash String? @map("submitter_ip_hash")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  member       Member        @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  reviewedBy   Admin?        @relation("ReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  duePayment   DuePayment?
+  transactions Transaction[]
+
+  /// NOTE: the rule "one active submission per member per due month" is a PARTIAL
+  /// unique index, which Prisma cannot express. It lives in a hand-written
+  /// migration (see prisma/migrations/*_partial_unique_and_checks). This plain
+  /// index is only for lookups.
+  @@index([memberId, dueYear, dueMonth, status])
+  @@index([status, createdAt])
+  @@index([dueYear, dueMonth])
+  @@map("payment_submissions")
+}
+
+/// Admin-defined expense heads. The spec allows free text too; see
+/// Transaction.expenseCategoryText.
+model ExpenseCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  transactions Transaction[]
+
+  @@map("expense_categories")
+}
+
+/// The general ledger: every taka in and out.
+model Transaction {
+  id   String          @id @default(uuid()) @db.Uuid
+  type TransactionType
+
+  /// Required when type is INCOME, null otherwise (enforced by a CHECK).
+  incomeCategory      IncomeCategory? @map("income_category")
+  expenseCategoryId   String?         @map("expense_category_id") @db.Uuid
+  expenseCategoryText String?         @map("expense_category_text")
+
+  amountPaisa Int @map("amount_paisa")
+
+  memberId           String? @map("member_id") @db.Uuid
+  duePaymentId       String? @map("due_payment_id") @db.Uuid
+  sourceSubmissionId String? @map("source_submission_id") @db.Uuid
+  importBatchId      String? @map("import_batch_id") @db.Uuid
+
+  note      String
+  entryDate DateTime @map("entry_date") @db.Date
+
+  createdById String? @map("created_by") @db.Uuid
+
+  /// Deterministic key (e.g. `sub:<id>:due`) so replays of approve or the cron
+  /// cannot write the same ledger row twice.
+  idempotencyKey String? @unique @map("idempotency_key")
+
+  /// Corrections void rather than delete, so the ledger stays auditable.
+  voidedAt   DateTime? @map("voided_at") @db.Timestamptz(3)
+  voidReason String?   @map("void_reason")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  member           Member?            @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  duePayment       DuePayment?        @relation(fields: [duePaymentId], references: [id], onDelete: SetNull)
+  sourceSubmission PaymentSubmission? @relation(fields: [sourceSubmissionId], references: [id], onDelete: SetNull)
+  expenseCategory  ExpenseCategory?   @relation(fields: [expenseCategoryId], references: [id], onDelete: Restrict)
+  importBatch      HistoricalImport?  @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  createdBy        Admin?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([type, entryDate])
+  @@index([type, incomeCategory, entryDate])
+  @@index([memberId, entryDate])
+  @@index([entryDate])
+  @@index([voidedAt])
+  @@map("transactions")
+}
+
+/// One row per backfill run, so an admin can see what was imported and undo it.
+model HistoricalImport {
+  id            String     @id @default(uuid()) @db.Uuid
+  kind          ImportKind
+  description   String
+  month         Int?
+  year          Int?
+  amountPaisa   Int?       @map("amount_paisa")
+  affectedCount Int        @default(0) @map("affected_count")
+  performedById String?    @map("performed_by") @db.Uuid
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  performedBy  Admin?        @relation(fields: [performedById], references: [id], onDelete: SetNull)
+  duePayments  DuePayment[]
+  transactions Transaction[]
+
+  @@index([createdAt])
+  @@map("historical_imports")
+}
+
+/// Single-row counters. Used for the member-code sequence: incrementing inside
+/// the creating transaction keeps the sequence continuous, because a rollback
+/// rolls the counter back too (a Postgres SEQUENCE would leave gaps).
+model Counter {
+  key   String @id
+  value Int    @default(0)
+
+  @@map("counters")
+}
+
+/// The rollover job's lock and audit trail. The unique constraint is what makes
+/// a double-run a no-op.
+model JobRun {
+  id         String    @id @default(uuid()) @db.Uuid
+  job        String
+  periodKey  String    @map("period_key")
+  startedAt  DateTime  @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(3)
+  result     Json?
+
+  @@unique([job, periodKey])
+  @@index([job, startedAt])
+  @@map("job_runs")
+}
