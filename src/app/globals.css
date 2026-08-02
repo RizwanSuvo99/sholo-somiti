@@ -1,0 +1,70 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens.
+ *
+ * Chrome (surfaces, text, borders) uses semantic tokens so the whole app can be
+ * retinted from one place. Accent tiles use Tailwind's built-in palette
+ * directly, because those classes must appear literally in the source for the
+ * scanner to emit them.
+ */
+@theme {
+  --font-sans: var(--font-bengali), system-ui, sans-serif;
+
+  --color-surface: #f6f7fb;
+  --color-panel: #ffffff;
+  --color-ink: #10151f;
+  --color-muted: #667085;
+  --color-line: #e6e8f0;
+
+  --color-brand: #047857;
+  --color-brand-strong: #065f46;
+  --color-brand-soft: #ecfdf5;
+  --color-brand-ring: #a7f3d0;
+
+  --color-positive: #059669;
+  --color-warn: #b45309;
+  --color-danger: #be123c;
+  --color-danger-soft: #fff1f2;
+  --color-info: #4338ca;
+
+  --shadow-tile: 0 1px 2px rgb(16 21 31 / 0.04), 0 8px 24px -12px rgb(16 21 31 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(16 21 31 / 0.05), 0 16px 32px -16px rgb(16 21 31 / 0.22);
+
+  --radius-card: 1rem;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  font-family: var(--font-sans);
+  /* Bengali conjuncts need more vertical room than Latin text. */
+  line-height: 1.7;
+  background:
+    radial-gradient(1100px 520px at 12% -12%, #e0f2fe 0%, transparent 60%),
+    radial-gradient(900px 480px at 92% -8%, #ede9fe 0%, transparent 58%),
+    var(--color-surface);
+  background-attachment: fixed;
+}
+
+/* Bengali numerals are visually dense; tabular figures keep money columns aligned. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* A hairline gradient rule used under section headings. */
+.rule {
+  height: 1px;
+  background: linear-gradient(90deg, var(--color-line), transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
