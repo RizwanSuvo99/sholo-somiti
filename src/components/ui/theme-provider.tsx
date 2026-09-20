@@ -4,18 +4,11 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react'
-import {
-  THEME_ATTRIBUTE,
-  readStoredTheme,
-  resolveTheme,
-  storeTheme,
-  type Theme,
-} from '@/lib/theme'
+import { DEFAULT_THEME, THEME_ATTRIBUTE, storeTheme, type Theme } from '@/lib/theme'
 
 type ThemeContextValue = {
   theme: Theme
@@ -32,8 +25,8 @@ export function useTheme(): ThemeContextValue {
 }
 
 function currentTheme(): Theme {
-  if (typeof document === 'undefined') return 'light'
-  return document.documentElement.getAttribute(THEME_ATTRIBUTE) === 'dark' ? 'dark' : 'light'
+  if (typeof document === 'undefined') return DEFAULT_THEME
+  return document.documentElement.getAttribute(THEME_ATTRIBUTE) === 'light' ? 'light' : 'dark'
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -47,22 +40,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     document.documentElement.setAttribute(THEME_ATTRIBUTE, next)
     storeTheme(next)
     setThemeState(next)
-  }, [])
-
-  // Follow the system only until a choice has been made. Someone who picked
-  // light should stay in light when night falls.
-  useEffect(() => {
-    if (readStoredTheme() !== null) return
-
-    const query = window.matchMedia('(prefers-color-scheme: dark)')
-    const onChange = (event: MediaQueryListEvent) => {
-      const next = resolveTheme(null, event.matches)
-      document.documentElement.setAttribute(THEME_ATTRIBUTE, next)
-      setThemeState(next)
-    }
-
-    query.addEventListener('change', onChange)
-    return () => query.removeEventListener('change', onChange)
   }, [])
 
   const value = useMemo<ThemeContextValue>(

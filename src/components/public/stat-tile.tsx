@@ -36,7 +36,9 @@ const TONES: Record<Tone, { shell: string; badge: string; value: string; label: 
     label: 'text-amber-800/80 dark:text-amber-300/85',
   },
   violet: {
-    shell: 'border-violet-200/70 bg-gradient-to-br from-violet-50 to-fuchsia-100/60',
+    shell:
+      'border-violet-200/70 bg-gradient-to-br from-violet-50 to-fuchsia-100/60 ' +
+      'dark:border-violet-400/25 dark:from-violet-500/12 dark:to-fuchsia-500/8',
     badge: 'bg-violet-600 text-white shadow-violet-600/25',
     value: 'text-violet-900 dark:text-violet-200',
     label: 'text-violet-800/80 dark:text-violet-300/85',

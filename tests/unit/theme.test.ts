@@ -3,6 +3,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  DEFAULT_THEME,
   THEME_ATTRIBUTE,
   THEME_INIT_SCRIPT,
   THEME_STORAGE_KEY,
@@ -23,21 +24,18 @@ function mockPrefersDark(matches: boolean) {
 }
 
 describe('resolveTheme', () => {
-  it.each([
-    ['dark', false, 'dark'],
-    ['light', true, 'light'],
-  ])('honours a stored choice of %s over the system', (stored, prefersDark, expected) => {
-    expect(resolveTheme(stored, prefersDark)).toBe(expected)
+  it.each(['dark', 'light'] as const)('honours a stored choice of %s', (stored) => {
+    expect(resolveTheme(stored)).toBe(stored)
   })
 
-  it('follows the system when nothing has been chosen', () => {
-    expect(resolveTheme(null, true)).toBe('dark')
-    expect(resolveTheme(null, false)).toBe('light')
+  it('opens dark for a first-time visitor', () => {
+    expect(resolveTheme(null)).toBe(DEFAULT_THEME)
+    expect(DEFAULT_THEME).toBe('dark')
   })
 
   it('ignores a stored value that is not a theme', () => {
-    expect(resolveTheme('purple', true)).toBe('dark')
-    expect(resolveTheme('', false)).toBe('light')
+    expect(resolveTheme('purple')).toBe(DEFAULT_THEME)
+    expect(resolveTheme('')).toBe(DEFAULT_THEME)
   })
 })
 
@@ -49,42 +47,39 @@ describe('the inline script that runs before first paint', () => {
 
   afterEach(() => vi.unstubAllGlobals())
 
-  it('applies a stored choice', () => {
-    localStorage.setItem(THEME_STORAGE_KEY, 'dark')
-    mockPrefersDark(false)
-
-    runInitScript()
-
-    expect(document.documentElement.getAttribute(THEME_ATTRIBUTE)).toBe('dark')
-  })
-
-  it('falls back to the system preference', () => {
-    mockPrefersDark(true)
-
-    runInitScript()
-
-    expect(document.documentElement.getAttribute(THEME_ATTRIBUTE)).toBe('dark')
-  })
-
-  it('always sets the attribute, so nothing renders unthemed', () => {
-    mockPrefersDark(false)
+  it('applies a stored choice of light over the dark default', () => {
+    localStorage.setItem(THEME_STORAGE_KEY, 'light')
 
     runInitScript()
 
     expect(document.documentElement.getAttribute(THEME_ATTRIBUTE)).toBe('light')
   })
 
-  it('settles on light when storage throws', () => {
-    // Private windows and blocked site data both do this.
-    const boom = () => {
+  it('opens dark when nothing has been chosen', () => {
+    runInitScript()
+
+    expect(document.documentElement.getAttribute(THEME_ATTRIBUTE)).toBe('dark')
+  })
+
+  it('does not consult the system preference', () => {
+    // The site opens dark by decision, so a light OS must not override it.
+    mockPrefersDark(false)
+
+    runInitScript()
+
+    expect(document.documentElement.getAttribute(THEME_ATTRIBUTE)).toBe('dark')
+  })
+
+  it('still sets the attribute when storage throws', () => {
+    // Private windows and blocked site data both do this; the page must not
+    // render unthemed.
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('blocked')
-    }
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(boom)
-    mockPrefersDark(true)
+    })
 
     runInitScript()
 
-    expect(document.documentElement.getAttribute(THEME_ATTRIBUTE)).toBe('light')
+    expect(document.documentElement.getAttribute(THEME_ATTRIBUTE)).toBe('dark')
     vi.restoreAllMocks()
   })
 })

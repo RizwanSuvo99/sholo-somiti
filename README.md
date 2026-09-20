@@ -138,8 +138,15 @@ Three details that matter more than they look:
   the date picker's own chrome follow the theme. Nothing in our CSS can reach
   those.
 
-The system preference is followed until a choice is made; after that the choice
-wins, and it keeps winning when the OS flips at sunset.
+The site **opens dark**. That is a decision rather than a reading of the system
+preference (`DEFAULT_THEME` in `src/lib/theme.ts`); once someone picks for
+themselves, their choice is kept instead.
+
+Every accent tone must restate its own colours for dark, because those use
+Tailwind's palette directly. `tests/component/stat-tile.test.tsx` walks every
+tone and fails if one has no `dark:` variant — one shipped without it because a
+find-and-replace missed a differing opacity suffix, leaving a white panel with
+dark text on a dark page.
 
 ## Pagination
 

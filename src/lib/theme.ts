@@ -4,6 +4,13 @@ export const THEME_STORAGE_KEY = 'somiti-theme'
 export const THEME_ATTRIBUTE = 'data-theme'
 
 /**
+ * What a first-time visitor sees. A deliberate choice rather than the system
+ * preference: the society wants the site to open dark, and once someone picks
+ * for themselves that choice is kept instead.
+ */
+export const DEFAULT_THEME: Theme = 'dark'
+
+/**
  * Applies the theme before the first paint.
  *
  * This runs as a blocking inline script in <head>, which is the only way to get
@@ -13,7 +20,7 @@ export const THEME_ATTRIBUTE = 'data-theme'
  *
  * It is written as a string because it must not wait for the JavaScript bundle.
  * Storage can throw — private windows, blocked site data — so a failure quietly
- * falls back to the system preference rather than leaving the page unstyled.
+ * falls back to the default rather than leaving the page unstyled.
  *
  * `tests/unit/theme.test.ts` executes this exact string, so it cannot drift
  * away from the behaviour it is supposed to have.
@@ -22,20 +29,18 @@ export const THEME_INIT_SCRIPT = `
 (function () {
   try {
     var stored = localStorage.getItem('${THEME_STORAGE_KEY}');
-    var theme = stored === 'light' || stored === 'dark'
-      ? stored
-      : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var theme = stored === 'light' || stored === 'dark' ? stored : '${DEFAULT_THEME}';
     document.documentElement.setAttribute('${THEME_ATTRIBUTE}', theme);
   } catch (e) {
-    document.documentElement.setAttribute('${THEME_ATTRIBUTE}', 'light');
+    document.documentElement.setAttribute('${THEME_ATTRIBUTE}', '${DEFAULT_THEME}');
   }
 })();
 `.trim()
 
-/** The theme to start with, given what was stored and what the system prefers. */
-export function resolveTheme(stored: string | null, prefersDark: boolean): Theme {
+/** The theme to start with: whatever was chosen before, otherwise the default. */
+export function resolveTheme(stored: string | null): Theme {
   if (stored === 'light' || stored === 'dark') return stored
-  return prefersDark ? 'dark' : 'light'
+  return DEFAULT_THEME
 }
 
 export function readStoredTheme(): Theme | null {
