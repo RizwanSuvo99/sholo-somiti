@@ -290,19 +290,47 @@ describe('public submission form — ID selector', () => {
     expect(screen.queryByText(dueMonthLabel(monthsAgo(1)))).not.toBeInTheDocument()
   })
 
-  it('lets the member pay less than the quoted total', async () => {
+  it('does not let the member type over the quoted amount', async () => {
+    // The figure is the society's own, worked out from what is owed. A typed
+    // number would contradict the breakdown shown right above it.
     vi.stubGlobal('fetch', mockLookup())
     const user = userEvent.setup()
 
     render(<SubmissionForm members={MEMBERS} />)
     await pickMember(user, /আব্দুল ইসলাম/)
-    await waitFor(() => expect(screen.getByLabelText(/পরিমাণ/)).toHaveValue('500'))
 
     const amount = screen.getByLabelText(/পরিমাণ/)
-    await user.clear(amount)
-    await user.type(amount, '300')
+    await waitFor(() => expect(amount).toHaveValue('500'))
+    expect(amount).toHaveAttribute('readonly')
 
-    expect(amount).toHaveValue('300')
+    await user.type(amount, '999')
+    expect(amount).toHaveValue('500')
+  })
+
+  it('re-quotes the amount when a different month is chosen', async () => {
+    const older = monthsAgo(1)
+    vi.stubGlobal(
+      'fetch',
+      mockLookup({
+        eligibleDueMonths: [
+          month(older.dueYear, older.dueMonth, dueMonthLabel(older), 50_000, 20_000),
+          month(CURRENT.dueYear, CURRENT.dueMonth, dueMonthLabel(CURRENT), 50_000, 0, {
+            isCurrent: true,
+          }),
+        ],
+      }),
+    )
+    const user = userEvent.setup()
+
+    render(<SubmissionForm members={MEMBERS} />)
+    await pickMember(user, /আব্দুল ইসলাম/)
+    await waitFor(() => expect(screen.getByLabelText(/পরিমাণ/)).toHaveValue('1200'))
+
+    await user.selectOptions(
+      screen.getByLabelText(/কোন মাস পর্যন্ত/),
+      `${older.dueYear}-${older.dueMonth}`,
+    )
+    await waitFor(() => expect(screen.getByLabelText(/পরিমাণ/)).toHaveValue('700'))
   })
 
   it('will not let a month be chosen before the admin has priced it', async () => {

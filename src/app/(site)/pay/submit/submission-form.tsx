@@ -57,9 +57,7 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
   const [lookup, setLookup] = useState<Lookup | null>(null)
   const [lookupState, setLookupState] = useState<'idle' | 'loading' | 'missing'>('idle')
   const [selectedMonth, setSelectedMonth] = useState<string>('')
-  // Null means "use the quoted total". Only a member who edits the field takes
-  // it over, so the quote is derived rather than kept in sync by an effect.
-  const [amountOverride, setAmountOverride] = useState<string | null>(null)
+
   const [medium, setMedium] = useState<string>('NPSB')
   const [screenshot, setScreenshot] = useState<UploadedImage | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -107,8 +105,8 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
     return { months, totalPaisa: totalOwed(months) }
   }, [lookup, chosen, sendingDate])
 
-  const quotedAmount = coverage ? String(fromPaisa(coverage.totalPaisa)) : ''
-  const amount = amountOverride ?? quotedAmount
+  // Derived, never typed: the member owes what the breakdown above adds up to.
+  const amount = coverage ? String(fromPaisa(coverage.totalPaisa)) : ''
 
   /**
    * The third layer of the one-per-month rule: warn and block before the member
@@ -118,7 +116,6 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
     setMemberCode(code)
     setLookup(null)
     setSelectedMonth('')
-    setAmountOverride(null)
 
     // Fall back to the name from the dropdown straight away, so the field is
     // filled even if the lookup is slow or fails.
@@ -277,10 +274,7 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
         label="টাকা পাঠানোর তারিখ"
         required
         value={sendingDate}
-        onChange={(date) => {
-          setSendingDate(date)
-          setAmountOverride(null)
-        }}
+        onChange={setSendingDate}
         error={fieldErrors.sendingDate}
         min={dueWindow(COLLECTION_START).startCivil}
         max={instantToDhakaCivil(new Date())}
@@ -296,10 +290,7 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
         >
           <Select
             value={selectedMonth}
-            onChange={(event) => {
-              setSelectedMonth(event.target.value)
-              setAmountOverride(null)
-            }}
+            onChange={(event) => setSelectedMonth(event.target.value)}
           >
             {lookup.eligibleDueMonths.map((month) => (
               <option
@@ -345,18 +336,23 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
         </div>
       )}
 
+      {/* Read-only for the same reason the name is: the figure is the society's
+          own, worked out from what the member owes. Letting it be typed over
+          would put a number on the record that the breakdown above contradicts. */}
       <Field
         label="পরিমাণ (টাকা)"
         required
         error={fieldErrors.amount}
-        hint="উপরের হিসাব অনুযায়ী পূরণ হয়েছে — কম পাঠালে পুরোনো মাস আগে পরিশোধ হবে"
+        hint="উপরের হিসাব অনুযায়ী স্বয়ংক্রিয়ভাবে নির্ধারিত — এই পরিমাণই পাঠাতে হবে"
       >
         <Input
-          inputMode="decimal"
           required
-          placeholder="৫০০"
+          readOnly
+          tabIndex={-1}
+          aria-readonly="true"
+          placeholder="আইডি ও মাস বাছলে হিসাব আসবে"
           value={amount}
-          onChange={(event) => setAmountOverride(event.target.value)}
+          className="cursor-not-allowed bg-surface text-muted"
         />
       </Field>
 
