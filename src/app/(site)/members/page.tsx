@@ -35,13 +35,13 @@ export default async function PublicMembersPage({
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">সদস্যবৃন্দ</h1>
         <div className="mt-3 flex flex-wrap gap-2 text-sm">
-          <Pill tone="bg-indigo-50 text-indigo-800 ring-indigo-200">
+          <Pill tone="bg-indigo-50 text-indigo-800 ring-indigo-200 dark:bg-indigo-500/12 dark:text-indigo-300 dark:ring-indigo-400/25">
             {toBnDigits(allMembers.length)} জন সক্রিয় সদস্য
           </Pill>
-          <Pill tone="bg-emerald-50 text-emerald-800 ring-emerald-200">
+          <Pill tone="bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-500/12 dark:text-emerald-300 dark:ring-emerald-400/25">
             সম্মিলিত জমা {formatBDT(totalContributed)}
           </Pill>
-          <Pill tone="bg-sky-50 text-sky-800 ring-sky-200">
+          <Pill tone="bg-sky-50 text-sky-800 ring-sky-200 dark:bg-sky-500/12 dark:text-sky-300 dark:ring-sky-400/25">
             চলতি মাসে জমা {toBnDigits(paidThisMonth)} জন
           </Pill>
         </div>

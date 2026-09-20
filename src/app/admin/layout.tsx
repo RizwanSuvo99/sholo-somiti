@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { Sidebar } from '@/components/admin/sidebar'
 import { LogoutButton } from '@/components/admin/logout-button'
 import { IconGlobe } from '@/components/ui/icon'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 
 export default async function AdminLayout({ children }: LayoutProps<'/admin'>) {
   // Middleware already redirected unauthenticated visitors, but it only checks a
@@ -37,6 +38,7 @@ export default async function AdminLayout({ children }: LayoutProps<'/admin'>) {
               <IconGlobe className="size-4 text-muted" />
               সাইট দেখুন
             </Link>
+            <ThemeToggle />
             <LogoutButton />
           </div>
         </div>

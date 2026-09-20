@@ -93,7 +93,7 @@ export function Modal({
         // cancel button, so this does not need to be reachable on its own.
         aria-hidden="true"
         onClick={onClose}
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm dark:bg-black/60"
       />
 
       <div

@@ -3,6 +3,8 @@ import { prisma, resetDatabase } from '../helpers/db'
 import { makeAdmin, makeDueSetting, makeMember, makeSubmission, resetFactorySequence } from '../helpers/factories'
 import { approveSubmission, rejectSubmission } from '@/lib/services/submissions'
 import { generateDuePayments } from '@/lib/services/dues'
+import { runMonthRollover } from '@/lib/services/rollover'
+import { dhakaCivilToInstant, parseCivilDate } from '@/lib/due-cycle'
 import { FINE_PAISA } from '@/lib/fines'
 import type { DueMonth } from '@/lib/due-cycle'
 
@@ -331,6 +333,66 @@ describe('approving a submission', () => {
       where: { memberId_year_month: { memberId: member.id, year: 2025, month: 11 } },
     })
     expect(november.status).toBe('PENDING')
+  })
+
+  it('waives a fine the rollover levied while the payment sat unreviewed', async () => {
+    // Sent on the 18th, well before the deadline. The rollover fires at 00:05
+    // on the 21st and fines everyone still PENDING — it cannot see a submission
+    // waiting in the review queue. Approving two days later must not charge the
+    // member for how quickly the admin got to it.
+    const admin = await makeAdmin()
+    const member = await makeMember()
+
+    await makeDueSetting(NOVEMBER, DUE_PAISA)
+    await generateDuePayments(NOVEMBER)
+
+    const submission = await makeSubmission(member.id, member.memberCode, NOVEMBER, {
+      sendingDate: '2025-11-18',
+      amountPaisa: DUE_PAISA,
+    })
+
+    // The deadline passes while the submission is still pending.
+    await runMonthRollover(dhakaCivilToInstant(parseCivilDate('2025-11-21'), 0, 5))
+
+    const fined = await prisma.duePayment.findUniqueOrThrow({
+      where: { memberId_year_month: { memberId: member.id, year: 2025, month: 11 } },
+    })
+    expect(fined.finePaisa).toBe(FINE_PAISA)
+
+    const result = await approveSubmission(submission.id, admin.id)
+
+    expect(result.months[0]).toMatchObject({ status: 'PAID_ON_TIME', finePaidPaisa: 0 })
+    expect(result.shortfallPaisa).toBe(0)
+    expect(result.warnings).toContain('FINE_WAIVED')
+
+    const settled = await prisma.duePayment.findUniqueOrThrow({
+      where: { memberId_year_month: { memberId: member.id, year: 2025, month: 11 } },
+    })
+    expect(settled.status).toBe('PAID_ON_TIME')
+    expect(settled.finePaisa).toBe(0)
+
+    // And nothing outstanding is left hanging against the member.
+    const fines = await prisma.transaction.count({ where: { incomeCategory: 'FINE' } })
+    expect(fines).toBe(0)
+  })
+
+  it('leaves the fine standing when the payment really was late', async () => {
+    const admin = await makeAdmin()
+    const member = await makeMember()
+
+    await makeDueSetting(NOVEMBER, DUE_PAISA)
+    await generateDuePayments(NOVEMBER)
+    await runMonthRollover(dhakaCivilToInstant(parseCivilDate('2025-11-21'), 0, 5))
+
+    const submission = await makeSubmission(member.id, member.memberCode, NOVEMBER, {
+      sendingDate: '2025-11-25',
+      amountPaisa: DUE_PAISA + FINE_PAISA,
+    })
+
+    const result = await approveSubmission(submission.id, admin.id)
+
+    expect(result.months[0]).toMatchObject({ status: 'PAID_LATE', finePaidPaisa: FINE_PAISA })
+    expect(result.warnings).not.toContain('FINE_WAIVED')
   })
 
   it('writes no ledger rows when a submission is rejected', async () => {

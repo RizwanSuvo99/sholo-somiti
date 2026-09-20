@@ -99,10 +99,20 @@ export function planSettlement(
 /**
  * What a month costs on a given sending date.
  *
- * A fine already on the ledger is used as-is — the rollover job levies it when
- * a deadline passes, and re-deriving it could contradict what was recorded.
- * Otherwise it is derived from the date the member says they sent the money, so
- * the quote on the form matches what approval will decide.
+ * The sending date decides it. A member who paid before the deadline owes
+ * nothing, **even if a fine is already on the ledger**: the rollover job fires
+ * at 00:05 on the 21st and fines every month still unpaid, and it cannot see a
+ * submission sitting in the review queue. Someone who paid on the 18th and was
+ * reviewed on the 23rd would otherwise be charged for how quickly the admin got
+ * to them.
+ *
+ * Waiving here rather than having the job skip months with a pending submission
+ * is deliberate: skipping would let anyone dodge a deadline by filing a junk
+ * submission before it, and if that were later rejected no fine would ever have
+ * been levied. This way the fine stands on anything rejected.
+ *
+ * When the payment really was late, a fine already recorded is used as-is
+ * rather than re-derived, so a figure the job wrote is not contradicted.
  */
 export function fineOwedFor(
   dm: DueMonth,
@@ -110,6 +120,22 @@ export function fineOwedFor(
   alreadyChargedPaisa: number,
   alreadyPaidPaisa = 0,
 ): number {
+  if (!isLate(sendingDate, dm)) return 0
   if (alreadyChargedPaisa > 0) return Math.max(0, alreadyChargedPaisa - alreadyPaidPaisa)
-  return isLate(sendingDate, dm) ? FINE_PAISA : 0
+  return FINE_PAISA
+}
+
+/**
+ * Whether an existing fine should be struck off entirely.
+ *
+ * Only the part not already collected is waived — money that actually came in
+ * stays recorded.
+ */
+export function fineIsWaived(
+  dm: DueMonth,
+  sendingDate: CivilDate,
+  alreadyChargedPaisa: number,
+  alreadyPaidPaisa = 0,
+): boolean {
+  return !isLate(sendingDate, dm) && alreadyChargedPaisa - alreadyPaidPaisa > 0
 }

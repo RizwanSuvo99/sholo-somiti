@@ -168,7 +168,7 @@ export function MembersTable({ members }: { members: MemberRow[] }) {
     <>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="border-b border-line bg-slate-50/80 text-left text-xs tracking-wide text-muted uppercase">
+          <thead className="border-b border-line bg-slate-50/80 dark:bg-white/4 text-left text-xs tracking-wide text-muted uppercase">
             <tr>
               <th className="px-4 py-2.5 font-medium">সদস্য</th>
               <th className="px-4 py-2.5 font-medium">পিতার নাম</th>

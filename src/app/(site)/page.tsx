@@ -108,13 +108,13 @@ export default async function HomePage() {
           <CardBody>
             <div className="flex items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 font-semibold">
-                <span className="grid size-8 place-items-center rounded-lg bg-indigo-100 text-indigo-700">
+                <span className="grid size-8 place-items-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">
                   <IconCalendar className="size-4" />
                 </span>
                 {dueMonthLabel(current)} মাসের চাঁদা
               </h2>
               {summary.currentDue.amountPaisa !== null && (
-                <span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700 ring-1 ring-indigo-200 ring-inset">
+                <span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700 ring-1 ring-indigo-200 dark:bg-indigo-500/12 dark:text-indigo-300 dark:ring-indigo-400/25 ring-inset">
                   {formatBDT(summary.currentDue.amountPaisa)}
                 </span>
               )}
@@ -128,7 +128,7 @@ export default async function HomePage() {
                 </span>
               </div>
               <div
-                className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100"
+                className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/8"
                 role="progressbar"
                 aria-valuenow={collectedPercent}
                 aria-valuemin={0}
@@ -143,9 +143,9 @@ export default async function HomePage() {
             </div>
 
             <dl className="mt-5 grid grid-cols-3 gap-3 text-center">
-              <Mini label="পরিশোধিত" value={summary.currentDue.paidCount} tone="text-emerald-700 bg-emerald-50" />
-              <Mini label="বাকি" value={summary.currentDue.pendingCount} tone="text-amber-700 bg-amber-50" />
-              <Mini label="অপরিশোধিত" value={summary.currentDue.unpaidCount} tone="text-rose-700 bg-rose-50" />
+              <Mini label="পরিশোধিত" value={summary.currentDue.paidCount} tone="text-emerald-700 bg-emerald-50 dark:bg-emerald-500/12 dark:text-emerald-300" />
+              <Mini label="বাকি" value={summary.currentDue.pendingCount} tone="text-amber-700 bg-amber-50 dark:bg-amber-500/12 dark:text-amber-300" />
+              <Mini label="অপরিশোধিত" value={summary.currentDue.unpaidCount} tone="text-rose-700 bg-rose-50 dark:bg-rose-500/12 dark:text-rose-300" />
             </dl>
 
             <p className="mt-4 flex items-center gap-2 text-sm text-muted">

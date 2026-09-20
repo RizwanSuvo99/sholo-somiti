@@ -109,6 +109,38 @@ Note that the account is visible to anyone on the internet, not only to members,
 since the site is public. That is normal for a society collecting dues, but it is
 a deliberate consequence of the public pages rather than an oversight.
 
+## Light and dark themes
+
+A toggle sits in the public navbar, the admin header, and on the login page
+(which is outside both shells).
+
+The light theme is unchanged. Dark is defined by restating the semantic tokens
+under `:root[data-theme='dark']` in `globals.css` — every component built on
+`bg-surface`, `text-ink`, `border-line` and friends follows without being
+touched. Only the accent tiles, status chips, toasts and a handful of tinted
+panels needed explicit `dark:` variants, because those use Tailwind's palette
+directly and cannot be retinted from one place.
+
+Greens brighten rather than darken in the dark theme: the light theme's
+emerald-700 is legible on white and invisible on near-black.
+
+Three details that matter more than they look:
+
+- **No flash of the wrong theme.** The choice lives in `localStorage`, which the
+  server cannot read, so an inline script in `<head>` applies it before first
+  paint. Doing this in an effect would show every returning member a flash of
+  light on every page load. `THEME_INIT_SCRIPT` lives in `src/lib/theme.ts` and
+  `tests/unit/theme.test.ts` executes that exact string, so it cannot drift.
+- **The toggle renders both icons** and lets CSS pick. Choosing in JavaScript
+  would mean the server renders one and the browser another — a hydration
+  mismatch on every load. The `aria-label` is constant for the same reason.
+- **`color-scheme` is set on `<html>`**, so native scrollbars, form controls and
+  the date picker's own chrome follow the theme. Nothing in our CSS can reach
+  those.
+
+The system preference is followed until a choice is made; after that the choice
+wins, and it keeps winning when the OS flips at sunset.
+
 ## Pagination
 
 Every listing shows **10 rows per page** (`PAGE_SIZE` in `src/lib/paginate.ts`).

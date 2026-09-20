@@ -189,7 +189,7 @@ export function MemberSelect({
             <>
               <span
                 aria-hidden="true"
-                className="grid size-7 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-400"
+                className="grid size-7 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-400 dark:bg-white/8 dark:text-slate-500"
               >
                 ?
               </span>

@@ -33,7 +33,7 @@ export function MemberCard({ member }: { member: MemberCardData }) {
       href={`/members/${member.memberCode}`}
       className="group block overflow-hidden rounded-2xl border border-line bg-panel shadow-tile transition duration-200 hover:-translate-y-0.5 hover:shadow-lift"
     >
-      <div className="relative aspect-4/5 w-full overflow-hidden bg-slate-100">
+      <div className="relative aspect-4/5 w-full overflow-hidden bg-slate-100 dark:bg-white/5">
         {member.photoUrl ? (
           <Image
             src={member.photoUrl}
@@ -69,7 +69,7 @@ export function MemberCard({ member }: { member: MemberCardData }) {
       <div className="flex items-end justify-between gap-2 px-4 py-3">
         <div>
           <p className="text-xs text-muted">মোট জমা</p>
-          <p className="text-lg font-bold tabular text-emerald-800">
+          <p className="text-lg font-bold tabular text-emerald-800 dark:text-emerald-300">
             {formatBDT(member.totalContributedPaisa)}
           </p>
         </div>

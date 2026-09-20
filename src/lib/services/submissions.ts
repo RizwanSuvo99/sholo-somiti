@@ -11,7 +11,12 @@ import {
   type DueMonth,
 } from '@/lib/due-cycle'
 import { settlementStatus } from '@/lib/fines'
-import { fineOwedFor, planSettlement, type OutstandingMonth } from '@/lib/settlement'
+import {
+  fineIsWaived,
+  fineOwedFor,
+  planSettlement,
+  type OutstandingMonth,
+} from '@/lib/settlement'
 import { dueMonthLabel } from '@/lib/bn'
 import { conflict, duplicateSubmission, notFound } from '@/lib/api/errors'
 
@@ -469,7 +474,21 @@ export async function approveSubmission(
         const status = allocation.dueSettled ? settledStatus : (existing?.status ?? 'PENDING')
 
         const amountDuePaisa = existing?.amountDuePaisa || allocation.duePaisa
-        const finePaisa = (existing?.finePaisa ?? 0) || allocation.finePaisa
+
+        // The rollover may have fined this month while the submission waited in
+        // the queue. If the member actually paid before the deadline, strike off
+        // whatever was never collected.
+        const waived = fineIsWaived(
+          dm,
+          sendingCivil,
+          existing?.finePaisa ?? 0,
+          existing?.finePaidPaisa ?? 0,
+        )
+        if (waived) warnings.push('FINE_WAIVED')
+
+        const finePaisa = waived
+          ? (existing?.finePaidPaisa ?? 0)
+          : (existing?.finePaisa ?? 0) || allocation.finePaisa
 
         const duePayment = await tx.duePayment.upsert({
           where: {
@@ -619,6 +638,7 @@ export type SettlementPreview = {
     toFine: number
     dueSettled: boolean
     late: boolean
+    fineWaivedPaisa: number
   }[]
   totalOwedPaisa: number
   shortfallPaisa: number
@@ -692,10 +712,18 @@ export async function previewSettlement(submissionId: string): Promise<Settlemen
   }
 
   const plan = planSettlement(outstanding, submission.amountPaisa)
+  const rowOf = new Map(covered.map((row) => [`${row.year}-${row.month}`, row]))
 
   return {
     months: plan.allocations.map((allocation) => {
       const dm = { dueYear: allocation.dueYear, dueMonth: allocation.dueMonth }
+      const row = rowOf.get(`${dm.dueYear}-${dm.dueMonth}`)
+      const waived = fineIsWaived(
+        dm,
+        sendingCivil,
+        row?.finePaisa ?? 0,
+        row?.finePaidPaisa ?? 0,
+      )
       return {
         ...dm,
         label: dueMonthLabel(dm),
@@ -705,6 +733,8 @@ export async function previewSettlement(submissionId: string): Promise<Settlemen
         toFine: allocation.toFine,
         dueSettled: allocation.dueSettled,
         late: settlementStatus(sendingCivil, dm) === 'PAID_LATE',
+        // A fine the rollover levied while this sat in the queue, now struck off.
+        fineWaivedPaisa: waived ? (row?.finePaisa ?? 0) - (row?.finePaidPaisa ?? 0) : 0,
       }
     }),
     totalOwedPaisa: plan.totalOwedPaisa,

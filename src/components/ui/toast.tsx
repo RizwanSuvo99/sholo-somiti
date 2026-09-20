@@ -69,17 +69,23 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 const TONES: Record<ToastTone, { shell: string; icon: string; glyph: string }> = {
   success: {
-    shell: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+    shell:
+      'border-emerald-200 bg-emerald-50 text-emerald-900 ' +
+      'dark:border-emerald-400/30 dark:bg-emerald-500/12 dark:text-emerald-200',
     icon: 'bg-emerald-600 text-white',
     glyph: '✓',
   },
   error: {
-    shell: 'border-rose-200 bg-rose-50 text-rose-900',
+    shell:
+      'border-rose-200 bg-rose-50 text-rose-900 ' +
+      'dark:border-rose-400/30 dark:bg-rose-500/12 dark:text-rose-200',
     icon: 'bg-rose-600 text-white',
     glyph: '!',
   },
   info: {
-    shell: 'border-sky-200 bg-sky-50 text-sky-900',
+    shell:
+      'border-sky-200 bg-sky-50 text-sky-900 ' +
+      'dark:border-sky-400/30 dark:bg-sky-500/12 dark:text-sky-200',
     icon: 'bg-sky-600 text-white',
     glyph: 'i',
   },

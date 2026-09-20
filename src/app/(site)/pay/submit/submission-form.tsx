@@ -248,7 +248,7 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
           aria-label="নির্বাচিত সদস্য"
           className="overflow-hidden rounded-2xl border border-brand-ring bg-brand-soft"
         >
-          <div className="relative aspect-3/2 w-full bg-slate-100">
+          <div className="relative aspect-3/2 w-full bg-slate-100 dark:bg-white/5">
             {selectedMember.photoUrl ? (
               <Image
                 src={selectedMember.photoUrl}

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { fineOwedFor, planSettlement, totalOwed, type OutstandingMonth } from '@/lib/settlement'
+import {
+  fineIsWaived,
+  fineOwedFor,
+  planSettlement,
+  totalOwed,
+  type OutstandingMonth,
+} from '@/lib/settlement'
 import { parseCivilDate } from '@/lib/due-cycle'
 import { FINE_PAISA } from '@/lib/fines'
 
@@ -165,13 +171,31 @@ describe('fineOwedFor', () => {
     expect(fineOwedFor(november, parseCivilDate('2025-11-21'), 0)).toBe(FINE_PAISA)
   })
 
-  it('uses the fine already on the ledger rather than re-deriving it', () => {
+  it('uses a fine already on the ledger when the payment really was late', () => {
     // The rollover job levied this; re-deriving could contradict the record.
-    expect(fineOwedFor(november, parseCivilDate('2025-11-20'), FINE_PAISA)).toBe(FINE_PAISA)
+    expect(fineOwedFor(november, parseCivilDate('2025-11-25'), FINE_PAISA)).toBe(FINE_PAISA)
+  })
+
+  it('waives a fine when the money was sent before the deadline', () => {
+    // The rollover fires at 00:05 on the 21st and fines every month still
+    // unpaid — it cannot see a submission waiting in the review queue. A member
+    // who paid on the 18th must not be charged for a slow review.
+    expect(fineOwedFor(november, parseCivilDate('2025-11-18'), FINE_PAISA)).toBe(0)
+    expect(fineOwedFor(november, parseCivilDate('2025-11-20'), FINE_PAISA)).toBe(0)
   })
 
   it('subtracts what has already been paid towards a fine', () => {
     expect(fineOwedFor(november, parseCivilDate('2026-01-05'), FINE_PAISA, 5_000)).toBe(15_000)
+  })
+
+  it('reports when a recorded fine should be struck off', () => {
+    expect(fineIsWaived(november, parseCivilDate('2025-11-18'), FINE_PAISA)).toBe(true)
+    // Late, so it stands.
+    expect(fineIsWaived(november, parseCivilDate('2025-11-25'), FINE_PAISA)).toBe(false)
+    // On time but nothing was ever charged, so there is nothing to strike off.
+    expect(fineIsWaived(november, parseCivilDate('2025-11-18'), 0)).toBe(false)
+    // Only the uncollected part is waived; money that came in stays recorded.
+    expect(fineIsWaived(november, parseCivilDate('2025-11-18'), FINE_PAISA, FINE_PAISA)).toBe(false)
   })
 
   it('never returns a negative amount', () => {

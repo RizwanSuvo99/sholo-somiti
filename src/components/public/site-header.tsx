@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/cn'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 
 const LINKS = [
   { href: '/', label: 'হোম', exact: true },
@@ -47,6 +48,8 @@ export function SiteHeader() {
           >
             চাঁদা জমা দিন
           </Link>
+
+          <ThemeToggle className="ml-1" />
         </nav>
       </div>
     </header>

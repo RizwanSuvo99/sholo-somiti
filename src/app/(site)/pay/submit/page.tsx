@@ -37,17 +37,17 @@ export default async function SubmitPage() {
 
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
         <InfoChip
-          tone="from-indigo-50 to-blue-100/70 border-indigo-200/70 text-indigo-900"
+          tone="from-indigo-50 to-blue-100/70 border-indigo-200/70 text-indigo-900 dark:from-indigo-500/12 dark:to-blue-500/8 dark:border-indigo-400/25 dark:text-indigo-200"
           label="চলতি মাস"
           value={dueMonthLabel(current)}
         />
         <InfoChip
-          tone="from-emerald-50 to-teal-100/70 border-emerald-200/70 text-emerald-900"
+          tone="from-emerald-50 to-teal-100/70 border-emerald-200/70 text-emerald-900 dark:from-emerald-500/12 dark:to-teal-500/8 dark:border-emerald-400/25 dark:text-emerald-200"
           label="চাঁদার পরিমাণ"
           value={setting ? formatBDT(setting.amountPaisa) : 'নির্ধারিত হয়নি'}
         />
         <InfoChip
-          tone="from-amber-50 to-orange-100/70 border-amber-200/70 text-amber-900"
+          tone="from-amber-50 to-orange-100/70 border-amber-200/70 text-amber-900 dark:from-amber-500/12 dark:to-orange-500/8 dark:border-amber-400/25 dark:text-amber-200"
           label="শেষ তারিখ"
           value={civilDateLabel(deadline)}
           note="এরপরে ৳২০০ জরিমানা"

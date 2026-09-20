@@ -96,18 +96,18 @@ export default async function DashboardPage() {
         <CardHeader
           title={`${dueMonthLabel(current)} মাসের আদায়`}
           accent={
-            <span className="grid size-7 place-items-center rounded-lg bg-indigo-100 text-indigo-700">
+            <span className="grid size-7 place-items-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">
               <IconCalendar className="size-4" />
             </span>
           }
         />
         <CardBody className="grid gap-3 sm:grid-cols-3">
-          <Mini label="পরিশোধিত" value={data.currentDue.paidCount} tone="bg-emerald-50 text-emerald-700" />
-          <Mini label="বাকি" value={data.currentDue.pendingCount} tone="bg-amber-50 text-amber-700" />
+          <Mini label="পরিশোধিত" value={data.currentDue.paidCount} tone="bg-emerald-50 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300" />
+          <Mini label="বাকি" value={data.currentDue.pendingCount} tone="bg-amber-50 text-amber-700 dark:bg-amber-500/12 dark:text-amber-300" />
           <Mini
             label="অপরিশোধিত"
             value={data.currentDue.unpaidCount}
-            tone="bg-rose-50 text-rose-700"
+            tone="bg-rose-50 text-rose-700 dark:bg-rose-500/12 dark:text-rose-300"
           />
         </CardBody>
       </Card>

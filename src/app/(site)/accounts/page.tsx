@@ -84,7 +84,7 @@ export default async function AccountsPage({
 
       <section className="mb-6 grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader title="আয়ের উৎস" accent={<span className="grid size-7 place-items-center rounded-lg bg-sky-100 text-sky-700"><IconArrowUp className="size-4" /></span>} />
+          <CardHeader title="আয়ের উৎস" accent={<span className="grid size-7 place-items-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"><IconArrowUp className="size-4" /></span>} />
           <CardBody className="space-y-3">
             <Proportion
               label="মাসিক চাঁদা"
@@ -108,7 +108,7 @@ export default async function AccountsPage({
         </Card>
 
         <Card>
-          <CardHeader title="ব্যয়ের খাত" accent={<span className="grid size-7 place-items-center rounded-lg bg-rose-100 text-rose-700"><IconArrowDown className="size-4" /></span>} />
+          <CardHeader title="ব্যয়ের খাত" accent={<span className="grid size-7 place-items-center rounded-lg bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"><IconArrowDown className="size-4" /></span>} />
           <CardBody className="space-y-3">
             {breakdown.length === 0 ? (
               <p className="text-center text-muted">এখনো কোনো ব্যয় হয়নি</p>
@@ -129,10 +129,10 @@ export default async function AccountsPage({
 
       {monthlyInfo.total > 0 && (
         <Card className="mb-6 overflow-hidden">
-          <CardHeader title="মাসভিত্তিক আয়-ব্যয়" accent={<span className="grid size-7 place-items-center rounded-lg bg-indigo-100 text-indigo-700"><IconCalendar className="size-4" /></span>} />
+          <CardHeader title="মাসভিত্তিক আয়-ব্যয়" accent={<span className="grid size-7 place-items-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"><IconCalendar className="size-4" /></span>} />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="border-b border-line bg-slate-50/80 text-left text-xs tracking-wide text-muted uppercase">
+              <thead className="border-b border-line bg-slate-50/80 dark:bg-white/4 text-left text-xs tracking-wide text-muted uppercase">
                 <tr>
                   <th className="px-4 py-2.5 font-medium">মাস</th>
                   <th className="px-4 py-2.5 font-medium">আয়</th>
@@ -174,7 +174,7 @@ export default async function AccountsPage({
       )}
 
       <Card className="overflow-hidden">
-        <CardHeader title="সাম্প্রতিক লেনদেন" accent={<span className="grid size-7 place-items-center rounded-lg bg-emerald-100 text-emerald-700"><IconReceipt className="size-4" /></span>} />
+        <CardHeader title="সাম্প্রতিক লেনদেন" accent={<span className="grid size-7 place-items-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"><IconReceipt className="size-4" /></span>} />
         {ledgerInfo.total === 0 ? (
           <CardBody>
             <p className="text-center text-muted">এখনো কোনো লেনদেন নেই</p>
@@ -182,7 +182,7 @@ export default async function AccountsPage({
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="border-b border-line bg-slate-50/80 text-left text-xs tracking-wide text-muted uppercase">
+              <thead className="border-b border-line bg-slate-50/80 dark:bg-white/4 text-left text-xs tracking-wide text-muted uppercase">
                 <tr>
                   <th className="px-4 py-2.5 font-medium">তারিখ</th>
                   <th className="px-4 py-2.5 font-medium">বিবরণ</th>
@@ -261,7 +261,7 @@ function Proportion({
           <Money paisa={amountPaisa} />
         </span>
       </div>
-      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100">
+      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/8">
         <div className={`h-full rounded-full ${bar}`} style={{ width: `${percent}%` }} />
       </div>
     </div>

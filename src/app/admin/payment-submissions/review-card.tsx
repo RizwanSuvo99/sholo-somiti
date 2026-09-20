@@ -16,6 +16,7 @@ type SettlementPlan = {
     toFine: number
     dueSettled: boolean
     late: boolean
+    fineWaivedPaisa: number
   }[]
   totalOwedPaisa: number
   shortfallPaisa: number
@@ -78,6 +79,9 @@ export function ReviewCard({
                   {month.label}
                   {month.late && <span className="text-warn"> · বিলম্বে</span>}
                   {!month.dueSettled && <span className="text-danger"> · আংশিক</span>}
+                  {month.fineWaivedPaisa > 0 && (
+                    <span className="text-positive"> · জরিমানা মওকুফ</span>
+                  )}
                 </span>
                 <span className="tabular">
                   <Money paisa={month.toDue} />

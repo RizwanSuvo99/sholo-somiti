@@ -1,12 +1,21 @@
 @import 'tailwindcss';
 
 /*
+ * `dark:` keys off an attribute on <html> rather than the OS setting, because
+ * the theme is a choice the member makes and we have to honour it over what
+ * their system says. The attribute is written before first paint by the inline
+ * script in src/lib/theme.ts.
+ */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/*
  * Design tokens.
  *
  * Chrome (surfaces, text, borders) uses semantic tokens so the whole app can be
- * retinted from one place. Accent tiles use Tailwind's built-in palette
- * directly, because those classes must appear literally in the source for the
- * scanner to emit them.
+ * retinted from one place — which is what makes a second theme mostly free.
+ * Accent tiles use Tailwind's built-in palette directly, because those classes
+ * must appear literally in the source for the scanner to emit them; those carry
+ * explicit `dark:` variants instead.
  */
 @theme {
   --font-sans: var(--font-bengali), system-ui, sans-serif;
@@ -34,8 +43,54 @@
   --radius-card: 1rem;
 }
 
+/* The washes behind the page, as tokens so the dark theme can restate them. */
+:root {
+  --wash-a: #e0f2fe;
+  --wash-b: #ede9fe;
+}
+
+/*
+ * The dark theme.
+ *
+ * Only the tokens are restated — every component built on them follows without
+ * being touched. Greens brighten rather than darken: the light theme's
+ * emerald-700 is legible on white and invisible on near-black.
+ */
+:root[data-theme='dark'] {
+  --color-surface: #0b0f16;
+  --color-panel: #141a23;
+  --color-ink: #e6eaf0;
+  --color-muted: #97a3b4;
+  --color-line: #232c39;
+
+  --color-brand: #10b981;
+  --color-brand-strong: #34d399;
+  --color-brand-soft: #0e2a22;
+  --color-brand-ring: #115e4a;
+
+  --color-positive: #34d399;
+  --color-warn: #fbbf24;
+  --color-danger: #fb7185;
+  --color-danger-soft: #2a151c;
+  --color-info: #818cf8;
+
+  /* Black shadows barely register on a dark surface, so they go much stronger
+     and the borders do more of the work. */
+  --shadow-tile: 0 1px 2px rgb(0 0 0 / 0.5), 0 8px 24px -12px rgb(0 0 0 / 0.75);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.5), 0 16px 32px -16px rgb(0 0 0 / 0.9);
+
+  --wash-a: rgb(16 185 129 / 0.07);
+  --wash-b: rgb(99 102 241 / 0.08);
+}
+
 html {
   color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  /* Native scrollbars, form controls and the date picker's own chrome follow
+     this, which nothing in our own CSS can reach. */
+  color-scheme: dark;
 }
 
 body {
@@ -43,10 +98,13 @@ body {
   /* Bengali conjuncts need more vertical room than Latin text. */
   line-height: 1.7;
   background:
-    radial-gradient(1100px 520px at 12% -12%, #e0f2fe 0%, transparent 60%),
-    radial-gradient(900px 480px at 92% -8%, #ede9fe 0%, transparent 58%),
+    radial-gradient(1100px 520px at 12% -12%, var(--wash-a) 0%, transparent 60%),
+    radial-gradient(900px 480px at 92% -8%, var(--wash-b) 0%, transparent 58%),
     var(--color-surface);
   background-attachment: fixed;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
 }
 
 /* Bengali numerals are visually dense; tabular figures keep money columns aligned. */
@@ -69,7 +127,8 @@ body {
   }
 }
 
-/* react-datepicker ships unstyled-ish defaults; align it with the app's shell. */
+/* react-datepicker ships its own light colours; align it with the app's shell
+   so it does not appear as a white card floating on a dark page. */
 .somiti-datepicker .react-datepicker {
   border-color: var(--color-line);
   border-radius: 0.875rem;
@@ -101,4 +160,32 @@ body {
 .somiti-datepicker .react-datepicker__month-text {
   border-radius: 0.5rem;
   padding: 0.4rem 0.2rem;
+}
+
+.somiti-datepicker .react-datepicker,
+.somiti-datepicker .react-datepicker__month-container {
+  background: var(--color-panel);
+  color: var(--color-ink);
+}
+
+.somiti-datepicker .react-datepicker__day,
+.somiti-datepicker .react-datepicker__day-name,
+.somiti-datepicker .react-datepicker__current-month {
+  color: var(--color-ink);
+}
+
+.somiti-datepicker .react-datepicker__day:hover {
+  background: var(--color-brand-soft);
+}
+
+.somiti-datepicker .react-datepicker__day--selected,
+.somiti-datepicker .react-datepicker__day--keyboard-selected {
+  background: var(--color-brand);
+  color: #fff;
+}
+
+.somiti-datepicker .react-datepicker__day--disabled,
+.somiti-datepicker .react-datepicker__day--outside-month {
+  color: var(--color-muted);
+  opacity: 0.55;
 }

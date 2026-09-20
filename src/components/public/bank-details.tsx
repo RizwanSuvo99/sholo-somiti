@@ -27,24 +27,24 @@ export function BankDetails({
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-2xl border border-sky-200/70 bg-gradient-to-br from-sky-50 to-indigo-50',
+        'overflow-hidden rounded-2xl border border-sky-200/70 bg-gradient-to-br from-sky-50 to-indigo-50 dark:border-sky-400/25 dark:from-sky-500/10 dark:to-indigo-500/10',
         className,
       )}
     >
-      <div className="flex items-center justify-between gap-3 border-b border-sky-200/60 px-5 py-3">
-        <h2 className="font-semibold text-sky-900">সমিতির ব্যাংক হিসাব</h2>
-        <span className="rounded-full bg-white/70 px-2.5 py-0.5 text-xs font-medium text-sky-800">
+      <div className="flex items-center justify-between gap-3 border-b border-sky-200/60 dark:border-sky-400/20 px-5 py-3">
+        <h2 className="font-semibold text-sky-900 dark:text-sky-200">সমিতির ব্যাংক হিসাব</h2>
+        <span className="rounded-full bg-white/70 px-2.5 py-0.5 text-xs font-medium text-sky-800 dark:bg-white/10 dark:text-sky-200">
           এই হিসাবে টাকা পাঠান
         </span>
       </div>
 
-      <dl className={cn('divide-y divide-sky-200/50', compact && 'text-sm')}>
+      <dl className={cn('divide-y divide-sky-200/50 dark:divide-sky-400/15', compact && 'text-sm')}>
         {BANK_FIELDS.map((field) => (
           <div key={field.label} className="flex items-center gap-3 px-5 py-2.5">
-            <dt className="w-28 shrink-0 text-sm text-sky-800/80">{field.label}</dt>
+            <dt className="w-28 shrink-0 text-sm text-sky-800/80 dark:text-sky-300/80">{field.label}</dt>
             <dd
               className={cn(
-                'min-w-0 flex-1 font-medium break-words text-sky-950',
+                'min-w-0 flex-1 font-medium break-words text-sky-950 dark:text-sky-100',
                 field.verbatim && 'tabular tracking-wide select-all',
               )}
             >
@@ -55,7 +55,7 @@ export function BankDetails({
         ))}
       </dl>
 
-      <p className="border-t border-sky-200/60 px-5 py-3 text-xs text-sky-800/80">
+      <p className="border-t border-sky-200/60 dark:border-sky-400/20 px-5 py-3 text-xs text-sky-800/80 dark:text-sky-300/80">
         টাকা পাঠানোর পর অবশ্যই{' '}
         {formHref ? (
           <Link href={formHref} className="font-medium underline">

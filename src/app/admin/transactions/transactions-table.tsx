@@ -85,7 +85,7 @@ export function TransactionsTable({ rows }: { rows: TransactionRow[] }) {
     <>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="border-b border-line bg-slate-50/80 text-left text-xs tracking-wide text-muted uppercase">
+          <thead className="border-b border-line bg-slate-50/80 dark:bg-white/4 text-left text-xs tracking-wide text-muted uppercase">
             <tr>
               <th className="px-4 py-2.5 font-medium">তারিখ</th>
               <th className="px-4 py-2.5 font-medium">ধরন</th>
@@ -132,7 +132,7 @@ export function TransactionsTable({ rows }: { rows: TransactionRow[] }) {
                 <td className="px-4 py-2.5">
                   <span className={row.voidedAt ? 'line-through' : undefined}>{row.note}</span>
                   {row.voidedAt && (
-                    <span className="ml-2 rounded-full bg-rose-50 px-2 py-0.5 text-xs text-rose-700 ring-1 ring-rose-200 ring-inset">
+                    <span className="ml-2 rounded-full bg-rose-50 px-2 py-0.5 text-xs text-rose-700 ring-1 ring-rose-200 dark:bg-rose-500/12 dark:text-rose-300 dark:ring-rose-400/25 ring-inset">
                       বাতিল: {row.voidReason}
                     </span>
                   )}
