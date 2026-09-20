@@ -1,0 +1,25 @@
+# Anything the build does not need, or must never reach the image.
+.env
+.env.*
+!.env.example
+
+node_modules
+.next
+out
+build
+
+.git
+.github
+*.log
+
+tests
+coverage
+vitest.config.mts
+
+README.md
+*.md
+!prisma/**/*.md
+
+.vscode
+.idea
+.DS_Store

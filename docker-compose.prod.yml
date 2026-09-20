@@ -1,0 +1,76 @@
+# Production stack for sholosomiti.duckdns.org.
+#
+# Shares only the Docker daemon and nginx with the other sites on this host:
+# its own containers, network, volume, database and port range.
+#
+# Every published port carries the 127.0.0.1 prefix. Docker writes its own
+# iptables rules that bypass ufw, so "5437:5432" would put this database on the
+# public internet while `ufw status` still claimed it was blocked.
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: somiti_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # The app reasons about Asia/Dhaka in its own code; the database stays on
+      # UTC so a stored timestamp means one thing.
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - '127.0.0.1:5437:5432'
+    volumes:
+      - somiti_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Runs once per deploy and must succeed before the app starts. Serving against
+  # a schema the code does not expect is worse than being briefly down.
+  migrate:
+    build:
+      context: .
+      target: builder
+    image: sholo-somiti-builder
+    container_name: somiti_migrate
+    restart: 'no'
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      DIRECT_DATABASE_URL: ${DATABASE_URL}
+    command: ['pnpm', 'prisma', 'migrate', 'deploy']
+
+  app:
+    build:
+      context: .
+      target: runner
+    image: sholo-somiti-app
+    container_name: somiti_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - '127.0.0.1:3002:3000'
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      DIRECT_DATABASE_URL: ${DATABASE_URL}
+      SESSION_SECRET: ${SESSION_SECRET}
+      CRON_SECRET: ${CRON_SECRET}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+      NODE_ENV: production
+      TZ: UTC
+
+volumes:
+  somiti_pgdata:

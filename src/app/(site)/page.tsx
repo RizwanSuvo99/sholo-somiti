@@ -17,9 +17,13 @@ import { formatBDT, toBnDigits } from '@/lib/money'
 import { civilDateLabel, dueMonthLabel } from '@/lib/bn'
 import { instantToDhakaCivil } from '@/lib/due-cycle'
 
-// Recomputed at most once a minute: the figures change only when an admin
-// approves something, and every visitor should not trigger a fresh aggregate.
-export const revalidate = 60
+// Rendered per request rather than cached.
+//
+// `revalidate` would have Next prerender this page at build time, which means a
+// production build needs a reachable database and bakes whatever the figures
+// were at build into the first response. The page reports the society's money;
+// it should read it when asked. At this size that costs one set of aggregates.
+export const dynamic = 'force-dynamic'
 
 export const metadata = {
   title: 'ষোলো সমবায় সমিতি',
