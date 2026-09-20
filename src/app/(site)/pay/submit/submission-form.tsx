@@ -7,6 +7,14 @@ import { Field, Input, Select } from '@/components/ui/field'
 import { Alert } from '@/components/ui/alert'
 import { ImageUpload, type UploadedImage } from '@/components/shared/image-upload'
 import { MemberSelect } from '@/components/shared/member-select'
+import { DateField } from '@/components/shared/date-picker'
+import {
+  dueWindow,
+  formatCivilDate,
+  instantToDhakaCivil,
+  type CivilDate,
+} from '@/lib/due-cycle'
+import { COLLECTION_START } from '@/lib/society'
 import { formatBDT } from '@/lib/money'
 
 type EligibleMonth = {
@@ -39,6 +47,7 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
   const router = useRouter()
 
   const [memberCode, setMemberCode] = useState('')
+  const [sendingDate, setSendingDate] = useState<CivilDate | null>(null)
   // Written only by onMemberSelected; the field itself is read-only.
   const [name, setName] = useState('')
   const [lookup, setLookup] = useState<Lookup | null>(null)
@@ -111,6 +120,10 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
       setError('কোন মাসের চাঁদা তা বেছে নিন')
       return
     }
+    if (!sendingDate) {
+      setError('টাকা পাঠানোর তারিখ বেছে নিন')
+      return
+    }
 
     setPending(true)
     const data = new FormData(event.currentTarget)
@@ -122,7 +135,7 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
         body: JSON.stringify({
           memberCode,
           name,
-          sendingDate: String(data.get('sendingDate') ?? ''),
+          sendingDate: formatCivilDate(sendingDate),
           amount: String(data.get('amount') ?? ''),
           transactionRef: String(data.get('transactionRef') ?? ''),
           paymentMedium: medium,
@@ -207,9 +220,16 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
       </Field>
 
       {/* 3. Sending date */}
-      <Field label="টাকা পাঠানোর তারিখ" required error={fieldErrors.sendingDate}>
-        <Input name="sendingDate" type="date" required />
-      </Field>
+      <DateField
+        label="টাকা পাঠানোর তারিখ"
+        required
+        value={sendingDate}
+        onChange={setSendingDate}
+        error={fieldErrors.sendingDate}
+        min={dueWindow(COLLECTION_START).startCivil}
+        max={instantToDhakaCivil(new Date())}
+        hint="ভবিষ্যতের তারিখ দেওয়া যাবে না"
+      />
 
       {/* The extra field: which month this pays for. */}
       {lookup && !allBlocked && (

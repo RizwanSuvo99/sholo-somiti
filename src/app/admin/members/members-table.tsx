@@ -11,7 +11,17 @@ import { MemberAvatar } from '@/components/shared/member-avatar'
 import { ImageUpload, type UploadedImage } from '@/components/shared/image-upload'
 import { toBnDigits } from '@/lib/money'
 import { civilDateLabel } from '@/lib/bn'
-import { parseCivilDate } from '@/lib/due-cycle'
+import { formatCivilDate, parseCivilDate, type CivilDate } from '@/lib/due-cycle'
+import { DateField } from '@/components/shared/date-picker'
+
+/** Rows come from the database already valid, but a draft can be mid-edit. */
+function safeCivil(value: string): CivilDate | null {
+  try {
+    return parseCivilDate(value)
+  } catch {
+    return null
+  }
+}
 
 export type MemberRow = {
   id: string
@@ -281,18 +291,14 @@ export function MembersTable({ members }: { members: MemberRow[] }) {
             </Field>
           </div>
 
-          <Field
+          <DateField
             label="যোগদানের তারিখ"
             required
             error={fieldError?.startsWith('যোগদানের') ? fieldError : undefined}
             hint="কোন মাস থেকে চাঁদা প্রযোজ্য তা এই তারিখ থেকে নির্ধারিত হয়"
-          >
-            <Input
-              type="date"
-              value={draft?.joinedOn ?? ''}
-              onChange={(e) => update({ joinedOn: e.target.value })}
-            />
-          </Field>
+            value={draft?.joinedOn ? safeCivil(draft.joinedOn) : null}
+            onChange={(date) => update({ joinedOn: date ? formatCivilDate(date) : '' })}
+          />
 
           <div className="border-t border-line pt-4">
             <ImageUpload

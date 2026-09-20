@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { Field, Input, Select } from '@/components/ui/field'
 import { MemberSelect } from '@/components/shared/member-select'
+import { DateField } from '@/components/shared/date-picker'
+import { formatCivilDate, instantToDhakaCivil, type CivilDate } from '@/lib/due-cycle'
 import { Alert } from '@/components/ui/alert'
 
 type Category = { id: string; name: string }
@@ -70,13 +72,15 @@ function useSubmit(onDone: () => void) {
   return { submit, error, pending }
 }
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10)
+/** Today in Dhaka, which is the day an admin means when they open the form. */
+function today(): CivilDate {
+  return instantToDhakaCivil(new Date())
 }
 
 function IncomeForm({ members, onDone }: { members: Member[]; onDone: () => void }) {
   const { submit, error, pending } = useSubmit(onDone)
   const [memberCode, setMemberCode] = useState('')
+  const [entryDate, setEntryDate] = useState<CivilDate | null>(today())
 
   const memberId = members.find((member) => member.memberCode === memberCode)?.id ?? null
 
@@ -89,7 +93,7 @@ function IncomeForm({ members, onDone }: { members: Member[]; onDone: () => void
       amount: String(data.get('amount') ?? ''),
       memberId,
       note: String(data.get('note') ?? ''),
-      entryDate: String(data.get('entryDate') ?? ''),
+      entryDate: entryDate ? formatCivilDate(entryDate) : '',
     })
   }
 
@@ -121,9 +125,7 @@ function IncomeForm({ members, onDone }: { members: Member[]; onDone: () => void
             placeholder="— কেউ নয় —"
           />
 
-          <Field label="তারিখ" required>
-            <Input name="entryDate" type="date" defaultValue={today()} required />
-          </Field>
+          <DateField label="তারিখ" required value={entryDate} onChange={setEntryDate} />
 
           <Field label="বিবরণ" required>
             <Input name="note" required placeholder="টাকাটি কিসের জন্য" />
@@ -145,6 +147,7 @@ function IncomeForm({ members, onDone }: { members: Member[]; onDone: () => void
 
 function ExpenseForm({ categories, onDone }: { categories: Category[]; onDone: () => void }) {
   const { submit, error, pending } = useSubmit(onDone)
+  const [entryDate, setEntryDate] = useState<CivilDate | null>(today())
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -156,7 +159,7 @@ function ExpenseForm({ categories, onDone }: { categories: Category[]; onDone: (
       expenseCategoryText: categoryId ? null : String(data.get('expenseCategoryText') ?? ''),
       amount: String(data.get('amount') ?? ''),
       note: String(data.get('note') ?? ''),
-      entryDate: String(data.get('entryDate') ?? ''),
+      entryDate: entryDate ? formatCivilDate(entryDate) : '',
     })
   }
 
@@ -186,9 +189,7 @@ function ExpenseForm({ categories, onDone }: { categories: Category[]; onDone: (
             <Input name="amount" inputMode="decimal" required />
           </Field>
 
-          <Field label="তারিখ" required>
-            <Input name="entryDate" type="date" defaultValue={today()} required />
-          </Field>
+          <DateField label="তারিখ" required value={entryDate} onChange={setEntryDate} />
 
           <Field label="বিবরণ" required>
             <Input name="note" required placeholder="খরচটি কিসের জন্য" />

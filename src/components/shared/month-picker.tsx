@@ -1,29 +1,12 @@
 'use client'
 
 import { useId } from 'react'
-import DatePicker, { registerLocale } from 'react-datepicker'
-import { bn } from 'date-fns/locale'
+import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import type { DueMonth } from '@/lib/due-cycle'
-import { BN_MONTHS, dueMonthLabel } from '@/lib/bn'
+import { dueMonthLabel } from '@/lib/bn'
 import { toBnDigits } from '@/lib/money'
-
-/**
- * date-fns' own Bengali month names are canonically equivalent to the app's but
- * not byte-identical — it writes য় as U+09DF where src/lib/bn.ts uses U+09AF +
- * U+09BC. They look the same and compare unequal, which is the sort of thing
- * that surfaces much later as a filter that silently matches nothing. Taking
- * the month names from the app keeps one spelling everywhere.
- */
-const somitiLocale = {
-  ...bn,
-  localize: {
-    ...bn.localize,
-    month: (index: number) => BN_MONTHS[index + 1],
-  },
-} as typeof bn
-
-registerLocale('bn-somiti', somitiLocale)
+import { CALENDAR_INPUT_CLASS, CALENDAR_LOCALE } from '@/lib/datepicker-locale'
 
 /**
  * A month-and-year calendar.
@@ -81,7 +64,7 @@ export function MonthPicker({
         showMonthYearPicker
         showFullMonthYearPicker
         dateFormat="MMMM yyyy"
-        locale="bn-somiti"
+        locale={CALENDAR_LOCALE}
         renderCustomHeader={({
           date,
           decreaseYear,
@@ -107,7 +90,7 @@ export function MonthPicker({
         excludeDates={excluded}
         aria-describedby={hint || disabledHint ? hintId : undefined}
         autoComplete="off"
-        className="w-full rounded-xl border border-line bg-panel px-3.5 py-2.5 text-ink shadow-sm transition focus:border-brand focus:ring-4 focus:ring-brand-ring/40 focus:outline-none"
+        className={CALENDAR_INPUT_CLASS}
         wrapperClassName="w-full"
         popperClassName="somiti-datepicker"
       />

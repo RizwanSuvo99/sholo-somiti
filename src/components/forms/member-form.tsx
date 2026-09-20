@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
 import { Alert } from '@/components/ui/alert'
 import { ImageUpload, type UploadedImage } from '@/components/shared/image-upload'
+import { DateField } from '@/components/shared/date-picker'
+import { formatCivilDate, parseCivilDate, type CivilDate } from '@/lib/due-cycle'
 
 export type MemberFormValues = {
   id?: string
@@ -25,6 +27,9 @@ export function MemberForm({ initial }: { initial?: MemberFormValues }) {
   const [photo, setPhoto] = useState<UploadedImage | null>(
     initial?.photoUrl ? { url: initial.photoUrl, publicId: initial.photoPublicId ?? '' } : null,
   )
+  const [joinedOn, setJoinedOn] = useState<CivilDate | null>(
+    initial?.joinedOn ? parseCivilDate(initial.joinedOn) : null,
+  )
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -33,13 +38,19 @@ export function MemberForm({ initial }: { initial?: MemberFormValues }) {
     setError(null)
     setPending(true)
 
+    if (!joinedOn) {
+      setError('যোগদানের তারিখ বেছে নিন')
+      setPending(false)
+      return
+    }
+
     const data = new FormData(event.currentTarget)
     const payload = {
       name: String(data.get('name') ?? ''),
       fatherName: String(data.get('fatherName') ?? ''),
       mobile: String(data.get('mobile') ?? ''),
       email: String(data.get('email') ?? ''),
-      joinedOn: String(data.get('joinedOn') ?? ''),
+      joinedOn: formatCivilDate(joinedOn),
       photoUrl: photo?.url ?? null,
       photoPublicId: photo?.publicId ?? null,
     }
@@ -89,13 +100,13 @@ export function MemberForm({ initial }: { initial?: MemberFormValues }) {
         </Field>
       </div>
 
-      <Field
+      <DateField
         label="যোগদানের তারিখ"
         required
+        value={joinedOn}
+        onChange={setJoinedOn}
         hint="আইডি নম্বরের সালের অংশ এবং কোন মাস থেকে চাঁদা প্রযোজ্য, তা এই তারিখ থেকে নির্ধারিত হয়"
-      >
-        <Input name="joinedOn" type="date" defaultValue={initial?.joinedOn} required />
-      </Field>
+      />
 
       <ImageUpload
         label="ছবি"

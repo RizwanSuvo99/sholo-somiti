@@ -63,6 +63,11 @@ describe('admin members table', () => {
     expect(within(dialog).getByLabelText(/^নাম/)).toHaveValue('আব্দুল ইসলাম')
     expect(within(dialog).getByLabelText(/পিতার নাম/)).toHaveValue('নাজমুল আহমেদ')
     expect(within(dialog).getByLabelText(/মোবাইল/)).toHaveValue('01700000137')
+
+    // The joining date is a calendar, not a native date input.
+    expect(within(dialog).getByLabelText(/যোগদানের তারিখ/)).toHaveValue('১ জানুয়ারি ২০২৫')
+    expect(dialog.querySelector('input[type="date"]')).toBeNull()
+    expect(dialog.querySelector('.react-datepicker__input-container')).not.toBeNull()
   })
 
   it('states that the member code cannot change', async () => {

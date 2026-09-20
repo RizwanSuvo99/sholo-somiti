@@ -43,14 +43,29 @@ const eslintConfig = defineConfig([
   },
   {
     /**
-     * The calendar is the boundary where a date-picker library's local-time
-     * Dates meet the app's DueMonth. It builds those Dates itself at local noon
-     * and reads them back with the matching local getters, so the pair is
-     * internally consistent. Routing them through the Dhaka helpers would be
-     * wrong: this widget picks a (year, month) pair, not an instant.
+     * The calendars are the boundary where a date-picker library's local-time
+     * Dates meet the app's CivilDate and DueMonth. They build those Dates
+     * themselves at local noon and read them back with the matching local
+     * getters, so each pair is internally consistent. Routing them through the
+     * Dhaka helpers would be wrong: these widgets pick a calendar day or a
+     * month, not an instant.
      */
-    files: ["src/components/shared/month-picker.tsx"],
+    files: [
+      "src/components/shared/month-picker.tsx",
+      "src/components/shared/date-picker.tsx",
+    ],
     rules: { "no-restricted-syntax": "off" },
+  },
+  {
+    // Underscore-prefixed names mark values deliberately discarded, such as a
+    // prop being swallowed so it cannot reach the DOM.
+    files: ["src/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
+      ],
+    },
   },
   globalIgnores([
     ".next/**",
