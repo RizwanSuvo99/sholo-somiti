@@ -12,6 +12,15 @@ export const SOCIETY = {
   shortName: 'ষোলো',
 } as const
 
+/**
+ * The first month the society collected dues for.
+ *
+ * Nothing before this exists to import or settle, so it is the floor for every
+ * historical backfill. Enforced on the server as well as in the pickers — a
+ * disabled option in a form is a convenience, not a guarantee.
+ */
+export const COLLECTION_START = { dueYear: 2025, dueMonth: 11 } as const
+
 export type BankField = {
   label: string
   value: string

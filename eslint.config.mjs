@@ -41,6 +41,17 @@ const eslintConfig = defineConfig([
     files: ["src/lib/due-cycle.ts"],
     rules: { "no-restricted-syntax": "off" },
   },
+  {
+    /**
+     * The calendar is the boundary where a date-picker library's local-time
+     * Dates meet the app's DueMonth. It builds those Dates itself at local noon
+     * and reads them back with the matching local getters, so the pair is
+     * internally consistent. Routing them through the Dhaka helpers would be
+     * wrong: this widget picks a (year, month) pair, not an instant.
+     */
+    files: ["src/components/shared/month-picker.tsx"],
+    rules: { "no-restricted-syntax": "off" },
+  },
   globalIgnores([
     ".next/**",
     "out/**",

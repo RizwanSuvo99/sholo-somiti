@@ -4,37 +4,15 @@ import { useRouter } from 'next/navigation'
 import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
-import { Field, Input, Select } from '@/components/ui/field'
-import { MemberSelect } from '@/components/shared/member-select'
+import { Field, Input } from '@/components/ui/field'
 import { Alert } from '@/components/ui/alert'
-import { BN_MONTHS } from '@/lib/bn'
+import { MemberSelect } from '@/components/shared/member-select'
+import { MonthPicker } from '@/components/shared/month-picker'
+import { useToast } from '@/components/ui/toast'
+import { COLLECTION_START } from '@/lib/society'
+import { dueMonthLabel } from '@/lib/bn'
 import { toBnDigits } from '@/lib/money'
-
-function MonthYear({ defaultYear }: { defaultYear: number }) {
-  const years = [defaultYear - 2, defaultYear - 1, defaultYear]
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      <Field label="মাস" required>
-        <Select name="month" defaultValue="1">
-          {BN_MONTHS.slice(1).map((name, index) => (
-            <option key={name} value={index + 1}>
-              {name}
-            </option>
-          ))}
-        </Select>
-      </Field>
-      <Field label="বছর" required>
-        <Select name="year" defaultValue={String(defaultYear - 1)}>
-          {years.map((year) => (
-            <option key={year} value={year}>
-              {toBnDigits(year)}
-            </option>
-          ))}
-        </Select>
-      </Field>
-    </div>
-  )
-}
+import type { DueMonth } from '@/lib/due-cycle'
 
 export type ImportMemberOption = {
   memberCode: string
@@ -43,15 +21,38 @@ export type ImportMemberOption = {
   photoUrl?: string | null
 }
 
-type ImportResult = { batchId: string; affected: number }
+export function ImportForms({
+  members,
+  importedMonths,
+  currentDue,
+}: {
+  members: ImportMemberOption[]
+  /** Months a uniform import has already covered. */
+  importedMonths: DueMonth[]
+  /** The month now open for collection; nothing later can be backfilled. */
+  currentDue: DueMonth
+}) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <FineImportForm members={members} currentDue={currentDue} />
+      <UniformImportForm importedMonths={importedMonths} currentDue={currentDue} />
+    </div>
+  )
+}
 
+/**
+ * Posts an import and reports the result as a toast.
+ *
+ * Returns whether it succeeded so the caller can clear its fields — leaving a
+ * filled-in form after a successful import invites submitting the same month
+ * twice.
+ */
 function useImport(endpoint: string) {
   const router = useRouter()
-  const [message, setMessage] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null)
+  const toast = useToast()
   const [pending, setPending] = useState(false)
 
   async function submit(payload: unknown, describe: (result: ImportResult) => string) {
-    setMessage(null)
     setPending(true)
     try {
       const response = await fetch(endpoint, {
@@ -62,61 +63,67 @@ function useImport(endpoint: string) {
       const result = await response.json().catch(() => null)
 
       if (!response.ok) {
-        setMessage({ tone: 'danger', text: result?.error?.messageBn ?? 'যোগ করা যায়নি' })
-        return
+        toast.error(result?.error?.messageBn ?? 'যোগ করা যায়নি')
+        return false
       }
 
-      setMessage({ tone: 'success', text: describe(result) })
+      toast.success(describe(result))
       router.refresh()
+      return true
+    } catch {
+      toast.error('সংযোগে সমস্যা হয়েছে')
+      return false
     } finally {
       setPending(false)
     }
   }
 
-  return { submit, message, pending, setMessage }
+  return { submit, pending }
 }
 
-export function ImportForms({ members }: { members: ImportMemberOption[] }) {
-  const year = new Date().getUTCFullYear()
-
-  return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <FineImportForm defaultYear={year} members={members} />
-      <UniformImportForm defaultYear={year} />
-    </div>
-  )
-}
+type ImportResult = { batchId: string; affected: number }
 
 function FineImportForm({
-  defaultYear,
   members,
+  currentDue,
 }: {
-  defaultYear: number
   members: ImportMemberOption[]
+  currentDue: DueMonth
 }) {
-  const { submit, message, pending, setMessage } = useImport('/api/admin/import/fines')
-  const [memberCode, setMemberCode] = useState('')
+  const { submit, pending } = useImport('/api/admin/import/fines')
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  const [memberCode, setMemberCode] = useState('')
+  const [month, setMonth] = useState<DueMonth | null>(null)
+  const [amount, setAmount] = useState('200')
+  const [note, setNote] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    // A hidden input is not covered by HTML's `required`, so the check is here.
-    if (!memberCode) {
-      setMessage({ tone: 'danger', text: 'সদস্য বেছে নিন' })
-      return
-    }
+    // The member code rides in a hidden input, which HTML `required` does not
+    // cover, and the month picker is not a native control either.
+    if (!memberCode) return setError('সদস্য বেছে নিন')
+    if (!month) return setError('মাস বেছে নিন')
+    setError(null)
 
-    const data = new FormData(event.currentTarget)
-    void submit(
+    const done = await submit(
       {
         memberCode,
-        month: Number(data.get('month')),
-        year: Number(data.get('year')),
-        amount: String(data.get('amount') ?? ''),
-        note: String(data.get('note') ?? ''),
+        month: month.dueMonth,
+        year: month.dueYear,
+        amount,
+        note,
       },
       () => 'জরিমানা যোগ হয়েছে',
     )
+
+    if (done) {
+      setMemberCode('')
+      setMonth(null)
+      setAmount('200')
+      setNote('')
+    }
   }
 
   return (
@@ -124,7 +131,7 @@ function FineImportForm({
       <CardHeader title="এক সদস্যের জরিমানা" />
       <CardBody>
         <form onSubmit={onSubmit} className="space-y-4">
-          {message && <Alert tone={message.tone}>{message.text}</Alert>}
+          {error && <Alert tone="danger">{error}</Alert>}
 
           <MemberSelect
             label="সদস্যের আইডি"
@@ -136,14 +143,27 @@ function FineImportForm({
             placeholder="— সদস্য বাছুন —"
           />
 
-          <MonthYear defaultYear={defaultYear} />
+          <MonthPicker
+            label="কোন মাসের জরিমানা"
+            required
+            value={month}
+            onChange={setMonth}
+            min={COLLECTION_START}
+            max={currentDue}
+            hint={`${dueMonthLabel(COLLECTION_START)} থেকে হিসাব শুরু`}
+          />
 
           <Field label="জরিমানার পরিমাণ (টাকা)" required>
-            <Input name="amount" inputMode="decimal" required defaultValue="200" />
+            <Input
+              inputMode="decimal"
+              required
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+            />
           </Field>
 
           <Field label="মন্তব্য">
-            <Input name="note" />
+            <Input value={note} onChange={(event) => setNote(event.target.value)} />
           </Field>
 
           <Button type="submit" className="w-full" disabled={pending}>
@@ -155,29 +175,44 @@ function FineImportForm({
   )
 }
 
-function UniformImportForm({ defaultYear }: { defaultYear: number }) {
-  const { submit, message, pending } = useImport('/api/admin/import/uniform-due')
+function UniformImportForm({
+  importedMonths,
+  currentDue,
+}: {
+  importedMonths: DueMonth[]
+  currentDue: DueMonth
+}) {
+  const { submit, pending } = useImport('/api/admin/import/uniform-due')
+
+  const [month, setMonth] = useState<DueMonth | null>(null)
+  const [amount, setAmount] = useState('')
+  const [note, setNote] = useState('')
+  const [error, setError] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
+    if (!month) return setError('মাস বেছে নিন')
+    setError(null)
 
     if (!confirming) {
       setConfirming(true)
       return
     }
 
-    const data = new FormData(event.currentTarget)
-    void submit(
-      {
-        month: Number(data.get('month')),
-        year: Number(data.get('year')),
-        amount: String(data.get('amount') ?? ''),
-        note: String(data.get('note') ?? ''),
-      },
+    const done = await submit(
+      { month: month.dueMonth, year: month.dueYear, amount, note },
       (result) => `${toBnDigits(result.affected)} জন সদস্যের হিসাব যোগ হয়েছে`,
     )
+
     setConfirming(false)
+
+    if (done) {
+      setMonth(null)
+      setAmount('')
+      setNote('')
+    }
   }
 
   return (
@@ -185,25 +220,49 @@ function UniformImportForm({ defaultYear }: { defaultYear: number }) {
       <CardHeader title="সবার জন্য একই চাঁদা" />
       <CardBody>
         <form onSubmit={onSubmit} className="space-y-4">
-          {message && <Alert tone={message.tone}>{message.text}</Alert>}
+          {error && <Alert tone="danger">{error}</Alert>}
 
           <p className="text-sm text-muted">
             একবার দিলেই সব সক্রিয় সদস্যের জন্য ওই মাসের চাঁদা যোগ হবে — আলাদা করে দিতে হবে না।
           </p>
 
-          <MonthYear defaultYear={defaultYear} />
+          <MonthPicker
+            label="কোন মাসের চাঁদা"
+            required
+            value={month}
+            onChange={(next) => {
+              setMonth(next)
+              setConfirming(false)
+            }}
+            min={COLLECTION_START}
+            max={currentDue}
+            disabledMonths={importedMonths}
+            hint={`${dueMonthLabel(COLLECTION_START)} থেকে হিসাব শুরু`}
+            disabledHint={
+              importedMonths.length > 0
+                ? `যোগ করা হয়ে গেছে এমন ${toBnDigits(importedMonths.length)}টি মাস বাছা যাবে না`
+                : undefined
+            }
+          />
 
           <Field label="চাঁদার পরিমাণ (টাকা)" required>
-            <Input name="amount" inputMode="decimal" required placeholder="৫০০" />
+            <Input
+              inputMode="decimal"
+              required
+              placeholder="৫০০"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+            />
           </Field>
 
           <Field label="মন্তব্য">
-            <Input name="note" />
+            <Input value={note} onChange={(event) => setNote(event.target.value)} />
           </Field>
 
-          {confirming && (
+          {confirming && month && (
             <Alert tone="warn">
-              সব সক্রিয় সদস্যের জন্য এই মাসের হিসাব যোগ হবে। নিশ্চিত হলে আবার চাপুন।
+              {dueMonthLabel(month)} মাসের জন্য সব সক্রিয় সদস্যের হিসাব যোগ হবে। নিশ্চিত হলে
+              আবার চাপুন।
             </Alert>
           )}
 

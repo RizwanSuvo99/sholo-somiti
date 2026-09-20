@@ -1,8 +1,15 @@
 import 'server-only'
 import { prisma } from '@/lib/prisma'
-import { civilToDbDate, dueWindow, type DueMonth } from '@/lib/due-cycle'
+import {
+  civilToDbDate,
+  compareDueMonth,
+  currentDueMonth,
+  dueWindow,
+  type DueMonth,
+} from '@/lib/due-cycle'
 import { dueMonthLabel } from '@/lib/bn'
-import { notFound } from '@/lib/api/errors'
+import { AppError, conflict, notFound } from '@/lib/api/errors'
+import { COLLECTION_START } from '@/lib/society'
 
 /**
  * Backfilling last year's records.
@@ -12,18 +19,46 @@ import { notFound } from '@/lib/api/errors'
  * mistaken batch can be identified and reversed.
  */
 
+/**
+ * Reject a month the society never collected for.
+ *
+ * The pickers already hide these, but this endpoint is reachable directly and a
+ * backdated row in the ledger is not something to discover months later.
+ */
+function assertImportableMonth(dm: DueMonth, now = new Date()): void {
+  if (compareDueMonth(dm, COLLECTION_START) < 0) {
+    throw new AppError(
+      'VALIDATION_FAILED',
+      422,
+      'Month precedes the first collection month',
+      `${dueMonthLabel(COLLECTION_START)} থেকে সমিতির হিসাব শুরু — এর আগের মাস যোগ করা যাবে না`,
+    )
+  }
+
+  const current = currentDueMonth(now)
+  if (compareDueMonth(dm, current) > 0) {
+    throw new AppError(
+      'VALIDATION_FAILED',
+      422,
+      'Month is in the future',
+      'ভবিষ্যতের মাসের হিসাব যোগ করা যাবে না',
+    )
+  }
+}
+
 /** Mode 1: a fine for one member, for one past month. */
 export async function importMemberFine(
   input: { memberCode: string; month: number; year: number; amountPaisa: number; note?: string },
   adminId: string,
 ) {
+  const dm: DueMonth = { dueYear: input.year, dueMonth: input.month }
+  assertImportableMonth(dm)
+
   const member = await prisma.member.findUnique({
     where: { memberCode: input.memberCode },
     select: { id: true, memberCode: true, name: true },
   })
   if (!member) throw notFound('Member', 'সদস্য')
-
-  const dm: DueMonth = { dueYear: input.year, dueMonth: input.month }
   const entryDate = civilToDbDate(dueWindow(dm).endCivil)
 
   return prisma.$transaction(async (tx) => {
@@ -87,6 +122,23 @@ export async function importUniformDue(
   adminId: string,
 ) {
   const dm: DueMonth = { dueYear: input.year, dueMonth: input.month }
+  assertImportableMonth(dm)
+
+  // One uniform import per month. Running it twice would not double the ledger
+  // (the idempotency keys prevent that), but it would silently overwrite the
+  // amount on every member's row, so it is refused outright.
+  const already = await prisma.historicalImport.findFirst({
+    where: { kind: 'UNIFORM_DUE_IMPORT', year: input.year, month: input.month },
+    select: { id: true },
+  })
+  if (already) {
+    throw conflict(
+      'CONFLICT',
+      'This month has already been imported',
+      `${dueMonthLabel(dm)} মাসের চাঁদা ইতিমধ্যে যোগ করা হয়েছে`,
+    )
+  }
+
   const windowEnd = civilToDbDate(dueWindow(dm).endCivil)
   const windowStart = civilToDbDate(dueWindow(dm).startCivil)
 
