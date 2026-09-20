@@ -144,10 +144,12 @@ describe('public submission form — ID selector', () => {
     expect(within(panel).getByText('NHSS-25001')).toBeInTheDocument()
     expect(within(panel).getByText('আব্দুল ইসলাম')).toBeInTheDocument()
 
-    // Large enough to be checked at a glance, not the 28px one in the picker.
+    // Fills the panel rather than sitting beside the text, so it can be
+    // checked without looking twice.
     const photo = panel.querySelector('img') as HTMLImageElement
     expect(photo.getAttribute('src')).toBe('https://img.invalid/a.jpg')
-    expect(photo.getAttribute('width')).toBe('88')
+    expect(photo.getAttribute('data-nimg')).toBe('fill')
+    expect(panel.querySelector('.aspect-3\\/2')).not.toBeNull()
     expect(container).toBeTruthy()
   })
 

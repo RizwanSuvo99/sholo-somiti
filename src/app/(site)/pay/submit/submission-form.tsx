@@ -7,7 +7,8 @@ import { Field, Input, Select } from '@/components/ui/field'
 import { Alert } from '@/components/ui/alert'
 import { ImageUpload, type UploadedImage } from '@/components/shared/image-upload'
 import { MemberSelect } from '@/components/shared/member-select'
-import { MemberAvatar } from '@/components/shared/member-avatar'
+import Image from 'next/image'
+import { avatarTone } from '@/components/shared/member-avatar'
 import { DateField } from '@/components/shared/date-picker'
 import {
   dueWindow,
@@ -237,33 +238,49 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
         placeholder="— আইডি নম্বর বাছুন —"
       />
 
-      {/* A large photo of whoever was picked. The ID codes differ by one digit,
-          so a member selecting the line above or below their own would
-          otherwise file a payment against someone else's name. */}
+      {/* A full-width photo of whoever was picked. The ID codes differ by one
+          digit, so a member selecting the line above or below their own would
+          otherwise file a payment against someone else's name — and that only
+          surfaces when the wrong person is chased for arrears. Big enough to
+          be checked without looking twice. */}
       {selectedMember && (
         <section
           aria-label="নির্বাচিত সদস্য"
-          className="flex items-center gap-4 rounded-2xl border border-brand-ring bg-brand-soft p-4"
+          className="overflow-hidden rounded-2xl border border-brand-ring bg-brand-soft"
         >
-          <MemberAvatar
-            memberCode={selectedMember.memberCode}
-            name={name || selectedMember.name}
-            photoUrl={selectedMember.photoUrl}
-            size={88}
-            shape="squircle"
-            ring="ring-2 ring-white"
-            className="shadow-md"
-          />
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-brand">আপনি বেছে নিয়েছেন</p>
-            <p className="truncate text-lg font-semibold text-ink">
-              {name || selectedMember.name}
-            </p>
-            <p className="tabular text-sm text-muted">{selectedMember.memberCode}</p>
-            <p className="mt-1.5 text-xs text-muted">
-              ছবি বা নাম আপনার না হলে উপরের তালিকা থেকে আবার বেছে নিন।
-            </p>
+          <div className="relative aspect-3/2 w-full bg-slate-100">
+            {selectedMember.photoUrl ? (
+              <Image
+                src={selectedMember.photoUrl}
+                alt=""
+                fill
+                sizes="(min-width: 640px) 576px, 100vw"
+                // Anchored to the top: in a portrait photo the face sits high,
+                // and cropping it away would defeat the point of showing it.
+                className="object-cover object-top"
+                unoptimized
+              />
+            ) : (
+              <span
+                aria-hidden="true"
+                className={`grid size-full place-items-center bg-gradient-to-br ${avatarTone(selectedMember.memberCode)} text-8xl font-bold text-white/90`}
+              >
+                {(name || selectedMember.name).slice(0, 1)}
+              </span>
+            )}
+
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/45 to-transparent p-4 pt-16">
+              <p className="text-xs font-medium text-white/80">আপনি বেছে নিয়েছেন</p>
+              <p className="truncate text-xl font-semibold text-white drop-shadow-sm">
+                {name || selectedMember.name}
+              </p>
+              <p className="tabular text-sm text-white/80">{selectedMember.memberCode}</p>
+            </div>
           </div>
+
+          <p className="px-4 py-2.5 text-xs text-brand-strong">
+            ছবি বা নাম আপনার না হলে উপরের তালিকা থেকে আবার বেছে নিন।
+          </p>
         </section>
       )}
 
