@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { BANK_FIELDS } from '@/lib/society'
 import { CopyButton } from './copy-button'
 import { cn } from '@/lib/cn'
@@ -13,9 +14,15 @@ import { cn } from '@/lib/cn'
 export function BankDetails({
   compact = false,
   className,
+  formHref,
 }: {
   compact?: boolean
   className?: string
+  /**
+   * Where the submission form lives, when it is not on this page. Omitted on
+   * the payment page itself, where the form is directly below.
+   */
+  formHref?: string
 }) {
   return (
     <div
@@ -49,8 +56,15 @@ export function BankDetails({
       </dl>
 
       <p className="border-t border-sky-200/60 px-5 py-3 text-xs text-sky-800/80">
-        টাকা পাঠানোর পর অবশ্যই নিচের ফরমে লেনদেনের তথ্য ও স্ক্রিনশট জমা দিন — তা না করলে
-        চাঁদা হিসাবে যুক্ত হবে না।
+        টাকা পাঠানোর পর অবশ্যই{' '}
+        {formHref ? (
+          <Link href={formHref} className="font-medium underline">
+            লেনদেনের তথ্য ও স্ক্রিনশট জমা দিন
+          </Link>
+        ) : (
+          <span>নিচের ফরমে লেনদেনের তথ্য ও স্ক্রিনশট জমা দিন</span>
+        )}{' '}
+        — তা না করলে চাঁদা হিসাবে যুক্ত হবে না।
       </p>
     </div>
   )

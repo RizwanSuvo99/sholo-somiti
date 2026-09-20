@@ -41,4 +41,19 @@ describe('society bank details', () => {
     render(<BankDetails />)
     expect(screen.getByText(/লেনদেনের তথ্য ও স্ক্রিনশট জমা দিন/)).toBeInTheDocument()
   })
+
+  it('points at the form when it is on another page', () => {
+    // On the home page there is no form below, so the note has to link to it.
+    render(<BankDetails formHref="/pay/submit" />)
+
+    const link = screen.getByRole('link', { name: /লেনদেনের তথ্য ও স্ক্রিনশট জমা দিন/ })
+    expect(link).toHaveAttribute('href', '/pay/submit')
+  })
+
+  it('says "the form below" when the form is on the same page', () => {
+    render(<BankDetails />)
+
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    expect(screen.getByText(/নিচের ফরমে/)).toBeInTheDocument()
+  })
 })

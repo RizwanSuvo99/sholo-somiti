@@ -102,11 +102,6 @@ export default async function HomePage() {
         />
       </section>
 
-      {/* Where to send the money */}
-      <section className="mb-8">
-        <BankDetails />
-      </section>
-
       {/* This month */}
       <section className="mb-8 grid gap-4 md:grid-cols-[1.15fr_1fr]">
         <Card>
@@ -194,6 +189,13 @@ export default async function HomePage() {
             </CardBody>
           </Card>
         </div>
+      </section>
+
+      {/* Where to send the money. Last, because someone reading the fund
+          figures is checking on the society; someone who has decided to pay
+          scrolls for the account. */}
+      <section>
+        <BankDetails formHref="/pay/submit" />
       </section>
     </main>
   )
