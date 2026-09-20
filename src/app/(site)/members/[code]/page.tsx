@@ -1,10 +1,10 @@
-import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getPublicMemberProfile } from '@/lib/queries/public'
 import { normalizeMemberCode } from '@/lib/member-code'
 import { Card, CardHeader } from '@/components/ui/card'
 import { StatTile } from '@/components/public/stat-tile'
+import { MemberAvatar } from '@/components/shared/member-avatar'
 import { IconAlert, IconCheck, IconWallet } from '@/components/ui/icon'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Money } from '@/components/shared/money'
@@ -48,20 +48,15 @@ export default async function PublicMemberProfilePage({
       </Link>
 
       <header className="mt-4 mb-6 flex items-center gap-4">
-        {profile.photoUrl ? (
-          <Image
-            src={profile.photoUrl}
-            alt=""
-            width={72}
-            height={72}
-            className="h-18 w-18 rounded-full border border-line object-cover"
-            unoptimized
-          />
-        ) : (
-          <div className="flex h-18 w-18 items-center justify-center rounded-full bg-brand-soft text-2xl font-semibold text-brand">
-            {profile.name.slice(0, 1)}
-          </div>
-        )}
+        <MemberAvatar
+          memberCode={profile.memberCode}
+          name={profile.name}
+          photoUrl={profile.photoUrl}
+          size={96}
+          shape="squircle"
+          ring="ring-2 ring-white"
+          className="shadow-md"
+        />
         <div>
           <h1 className="text-2xl font-bold">{profile.name}</h1>
           <p className="tabular text-sm text-muted">{profile.memberCode}</p>

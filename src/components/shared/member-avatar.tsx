@@ -28,15 +28,25 @@ export function MemberAvatar({
   name,
   photoUrl,
   size = 32,
+  shape = 'circle',
+  ring = 'ring-1 ring-black/5',
   className,
 }: {
   memberCode: string
   name: string
   photoUrl?: string | null
   size?: number
+  /** Circles suit inline lists; the softer square reads better at card sizes. */
+  shape?: 'circle' | 'squircle'
+  /**
+   * Passed rather than merged into `className`, because two competing `ring-*`
+   * utilities would be resolved by stylesheet order rather than by the order
+   * they are written here.
+   */
+  ring?: string
   className?: string
 }) {
-  const shared = 'shrink-0 rounded-full object-cover ring-1 ring-black/5'
+  const radius = shape === 'squircle' ? 'rounded-2xl' : 'rounded-full'
 
   if (photoUrl) {
     return (
@@ -46,7 +56,7 @@ export function MemberAvatar({
         width={size}
         height={size}
         style={{ width: size, height: size }}
-        className={cn(shared, className)}
+        className={cn('shrink-0 object-cover', radius, ring, className)}
         unoptimized
       />
     )
@@ -55,9 +65,11 @@ export function MemberAvatar({
   return (
     <span
       aria-hidden="true"
-      style={{ width: size, height: size, fontSize: Math.round(size * 0.42) }}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.4) }}
       className={cn(
-        'grid shrink-0 place-items-center rounded-full bg-gradient-to-br font-semibold text-white ring-1 ring-black/5',
+        'grid shrink-0 place-items-center bg-gradient-to-br font-semibold text-white',
+        radius,
+        ring,
         avatarTone(memberCode),
         className,
       )}

@@ -1,7 +1,7 @@
-import Image from 'next/image'
 import Link from 'next/link'
 import { getPublicMembers } from '@/lib/queries/public'
 import { Card } from '@/components/ui/card'
+import { MemberAvatar } from '@/components/shared/member-avatar'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { formatBDT, toBnDigits } from '@/lib/money'
 import { civilDateLabel } from '@/lib/bn'
@@ -14,21 +14,6 @@ export const dynamic = 'force-dynamic'
 export const metadata = {
   title: 'সদস্যবৃন্দ — ষোলো সমবায় সমিতি',
   description: 'সমিতির সদস্য এবং তাঁদের মোট জমার হিসাব',
-}
-
-/** A stable colour per member, so each avatar keeps its own identity. */
-const AVATAR_TONES = [
-  'from-emerald-500 to-teal-600',
-  'from-sky-500 to-indigo-600',
-  'from-violet-500 to-fuchsia-600',
-  'from-amber-500 to-orange-600',
-  'from-rose-500 to-pink-600',
-  'from-cyan-500 to-blue-600',
-]
-
-function toneFor(code: string): string {
-  const digits = Number(code.replace(/\D/g, '').slice(-3)) || 0
-  return AVATAR_TONES[digits % AVATAR_TONES.length]
 }
 
 export default async function PublicMembersPage({
@@ -74,26 +59,21 @@ export default async function PublicMembersPage({
           {members.map((member) => (
             <Link key={member.memberCode} href={`/members/${member.memberCode}`} className="group">
               <Card hoverable className="h-full overflow-hidden">
-                <div className="flex items-start gap-3 p-4">
-                  {member.photoUrl ? (
-                    <Image
-                      src={member.photoUrl}
-                      alt=""
-                      width={52}
-                      height={52}
-                      className="size-13 shrink-0 rounded-2xl object-cover ring-2 ring-white shadow-md"
-                      unoptimized
-                    />
-                  ) : (
-                    <span
-                      className={`grid size-13 shrink-0 place-items-center rounded-2xl bg-gradient-to-br ${toneFor(member.memberCode)} text-lg font-bold text-white shadow-md`}
-                    >
-                      {member.name.slice(0, 1)}
-                    </span>
-                  )}
+                <div className="flex items-center gap-4 p-4">
+                  <MemberAvatar
+                    memberCode={member.memberCode}
+                    name={member.name}
+                    photoUrl={member.photoUrl}
+                    size={76}
+                    shape="squircle"
+                    ring="ring-2 ring-white"
+                    className="shadow-md"
+                  />
 
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold group-hover:text-brand">{member.name}</p>
+                    <p className="truncate text-base font-semibold group-hover:text-brand">
+                      {member.name}
+                    </p>
                     <p className="tabular text-xs text-muted">{member.memberCode}</p>
                     <div className="mt-2">
                       <StatusBadge status={member.currentMonthStatus} />
