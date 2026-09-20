@@ -1,10 +1,7 @@
-import Link from 'next/link'
 import { getPublicMembers } from '@/lib/queries/public'
 import { Card } from '@/components/ui/card'
-import { MemberAvatar } from '@/components/shared/member-avatar'
-import { StatusBadge } from '@/components/shared/status-badge'
+import { MemberCard } from '@/components/public/member-card'
 import { formatBDT, toBnDigits } from '@/lib/money'
-import { civilDateLabel } from '@/lib/bn'
 import { paginate } from '@/lib/paginate'
 import { Pagination } from '@/components/shared/pagination'
 
@@ -57,45 +54,7 @@ export default async function PublicMembersPage({
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {members.map((member) => (
-            <Link key={member.memberCode} href={`/members/${member.memberCode}`} className="group">
-              <Card hoverable className="h-full overflow-hidden">
-                <div className="flex items-center gap-4 p-4">
-                  <MemberAvatar
-                    memberCode={member.memberCode}
-                    name={member.name}
-                    photoUrl={member.photoUrl}
-                    size={76}
-                    shape="squircle"
-                    ring="ring-2 ring-white"
-                    className="shadow-md"
-                  />
-
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-base font-semibold group-hover:text-brand">
-                      {member.name}
-                    </p>
-                    <p className="tabular text-xs text-muted">{member.memberCode}</p>
-                    <div className="mt-2">
-                      <StatusBadge status={member.currentMonthStatus} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-end justify-between gap-2 border-t border-line bg-gradient-to-r from-emerald-50/60 to-transparent px-4 py-3">
-                  <div>
-                    <p className="text-xs text-muted">মোট জমা</p>
-                    <p className="text-lg font-bold tabular text-emerald-800">
-                      {formatBDT(member.totalContributedPaisa)}
-                    </p>
-                  </div>
-                  <p className="text-right text-xs text-muted">
-                    সদস্য
-                    <br />
-                    {civilDateLabel(member.joinedOn)} থেকে
-                  </p>
-                </div>
-              </Card>
-            </Link>
+            <MemberCard key={member.memberCode} member={member} />
           ))}
         </div>
       )}
