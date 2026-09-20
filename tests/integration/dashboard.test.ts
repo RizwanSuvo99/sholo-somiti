@@ -89,7 +89,7 @@ describe('dashboard aggregates', () => {
 
     const dashboard = await getDashboard()
 
-    // The ৳200 was levied but never paid: it is outstanding, not income.
+    // The ৳ 200 was levied but never paid: it is outstanding, not income.
     expect(dashboard.totalFinesCollectedPaisa).toBe(0)
     expect(dashboard.finesOutstandingPaisa).toBe(FINE_PAISA)
   })

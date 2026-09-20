@@ -6,7 +6,7 @@ import { StatTile, type Tone } from '@/components/public/stat-tile'
 const ACCENT_TONES: Tone[] = ['emerald', 'sky', 'amber', 'violet', 'rose', 'indigo']
 
 function shellOf(tone: Tone) {
-  const { container } = render(<StatTile tone={tone} label="পরীক্ষা" value="৳১০০" />)
+  const { container } = render(<StatTile tone={tone} label="পরীক্ষা" value="৳ ১০০" />)
   return (container.firstElementChild as HTMLElement).className
 }
 
@@ -22,7 +22,7 @@ describe('StatTile tones', () => {
   })
 
   it.each(ACCENT_TONES)('%s restates its text colour for dark', (tone) => {
-    const { container } = render(<StatTile tone={tone} label="পরীক্ষা" value="৳১০০" />)
+    const { container } = render(<StatTile tone={tone} label="পরীক্ষা" value="৳ ১০০" />)
     const html = container.innerHTML
 
     expect(html).toMatch(/dark:text-/)
@@ -35,9 +35,11 @@ describe('StatTile tones', () => {
   })
 
   it('still renders the label and value', () => {
-    const { getByText } = render(<StatTile tone="violet" label="অন্যান্য আয়" value="৳১,০০০" />)
+    const { getByText } = render(<StatTile tone="violet" label="অন্যান্য আয়" value="৳ ১,০০০" />)
 
     expect(getByText('অন্যান্য আয়')).toBeInTheDocument()
-    expect(getByText('৳১,০০০')).toBeInTheDocument()
+    // Matched on the digits: testing-library collapses the narrow no-break
+    // space when it normalises node text, so an exact literal would not match.
+    expect(getByText(/১,০০০/)).toBeInTheDocument()
   })
 })

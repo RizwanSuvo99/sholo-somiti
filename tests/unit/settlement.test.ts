@@ -9,7 +9,7 @@ import {
 import { parseCivilDate } from '@/lib/due-cycle'
 import { FINE_PAISA } from '@/lib/fines'
 
-const DUE = 50_000 // ৳500
+const DUE = 50_000 // ৳ 500
 
 const nov: OutstandingMonth = { dueYear: 2025, dueMonth: 11, duePaisa: DUE, finePaisa: FINE_PAISA }
 const dec: OutstandingMonth = { dueYear: 2025, dueMonth: 12, duePaisa: DUE, finePaisa: 0 }
@@ -18,7 +18,7 @@ describe('totalOwed', () => {
   it('adds dues and fines across months', () => {
     // The case from the brief: a missed month, its fine, and the next month.
     expect(totalOwed([nov, dec])).toBe(DUE + FINE_PAISA + DUE)
-    expect(totalOwed([nov, dec])).toBe(120_000) // ৳1,200
+    expect(totalOwed([nov, dec])).toBe(120_000) // ৳ 1,200
   })
 
   it('is zero for nothing owed', () => {
@@ -27,7 +27,7 @@ describe('totalOwed', () => {
 
   it('charges a separate fine for each consecutive month missed', () => {
     // Three months missed, then paid in the fourth: three fines, not one, and
-    // not a fine that grew. The ৳200 is flat per month.
+    // not a fine that grew. The ৳ 200 is flat per month.
     const missed = [11, 12, 1].map((dueMonth, index) => ({
       dueYear: dueMonth === 1 ? 2026 : 2025,
       dueMonth,
@@ -38,7 +38,7 @@ describe('totalOwed', () => {
     const current = { dueYear: 2026, dueMonth: 2, duePaisa: DUE, finePaisa: 0 }
 
     expect(totalOwed([...missed, current])).toBe(DUE * 4 + FINE_PAISA * 3)
-    expect(totalOwed([...missed, current])).toBe(260_000) // ৳2,600
+    expect(totalOwed([...missed, current])).toBe(260_000) // ৳ 2,600
   })
 })
 
@@ -167,7 +167,7 @@ describe('fineOwedFor', () => {
     expect(fineOwedFor(november, parseCivilDate('2025-11-20'), 0)).toBe(0)
   })
 
-  it('charges ৳200 when it was sent after the deadline', () => {
+  it('charges ৳ 200 when it was sent after the deadline', () => {
     expect(fineOwedFor(november, parseCivilDate('2025-11-21'), 0)).toBe(FINE_PAISA)
   })
 

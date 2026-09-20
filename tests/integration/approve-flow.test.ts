@@ -48,7 +48,7 @@ describe('approving a submission', () => {
     expect(ledger[0]).toMatchObject({ type: 'INCOME', incomeCategory: 'MONTHLY_DUE', amountPaisa: DUE_PAISA })
   })
 
-  it('settles a late payment as PAID_LATE with the ৳200 fine', async () => {
+  it('settles a late payment as PAID_LATE with the ৳ 200 fine', async () => {
     // April's due, sent on 3 May — the case the due-month selector exists for.
     const admin = await makeAdmin()
     const member = await makeMember()
@@ -108,7 +108,7 @@ describe('approving a submission', () => {
     const member = await makeMember()
     const submission = await makeSubmission(member.id, member.memberCode, APRIL, {
       sendingDate: '2026-05-03',
-      amountPaisa: DUE_PAISA, // covers the due but not the ৳200 fine
+      amountPaisa: DUE_PAISA, // covers the due but not the ৳ 200 fine
     })
 
     const result = await approveSubmission(submission.id, admin.id)
@@ -177,7 +177,7 @@ describe('approving a submission', () => {
 
   it('clears a missed month, its fine and the current month in one payment', async () => {
     // The case from the brief: November missed and fined, December due, paid
-    // together as ৳500 + ৳200 + ৳500.
+    // together as ৳ 500 + ৳ 200 + ৳ 500.
     const admin = await makeAdmin()
     const member = await makeMember()
 

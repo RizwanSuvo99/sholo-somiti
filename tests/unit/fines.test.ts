@@ -54,14 +54,14 @@ describe('fineFor', () => {
     expect(fineFor(on('2026-04-20'), due(2026, 4))).toBe(0)
   })
 
-  it('charges exactly ৳200 for a late payment', () => {
+  it('charges exactly ৳ 200 for a late payment', () => {
     expect(fineFor(on('2026-04-21'), due(2026, 4))).toBe(FINE_PAISA)
     expect(FINE_PAISA).toBe(20_000)
   })
 
   it('never doubles a fine the rollover job already levied', () => {
-    // The member missed the deadline, the cron charged ৳200, and the late
-    // payment is only now being approved. The fine must stay ৳200.
+    // The member missed the deadline, the cron charged ৳ 200, and the late
+    // payment is only now being approved. The fine must stay ৳ 200.
     expect(fineFor(on('2026-05-03'), due(2026, 4), FINE_PAISA)).toBe(FINE_PAISA)
   })
 

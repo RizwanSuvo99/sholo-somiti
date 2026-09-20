@@ -288,7 +288,7 @@ describe('public submission form — ID selector', () => {
     // And the member can see what makes it up.
     expect(screen.getByText('যা পরিশোধ হবে')).toBeInTheDocument()
     expect(screen.getByText(dueMonthLabel(monthsAgo(2)))).toBeInTheDocument()
-    expect(screen.getByText('৳১,৯০০')).toBeInTheDocument()
+    expect(screen.getByText(/১,৯০০/)).toBeInTheDocument()
   })
 
   it('only covers months up to the one chosen', async () => {
@@ -388,7 +388,7 @@ describe('public submission form — ID selector', () => {
   })
 
   it('will not let a month be chosen before the admin has priced it', async () => {
-    // Quoting ৳০ would file the money as surplus instead of a subscription.
+    // Quoting ৳ ০ would file the money as surplus instead of a subscription.
     vi.stubGlobal(
       'fetch',
       mockLookup({

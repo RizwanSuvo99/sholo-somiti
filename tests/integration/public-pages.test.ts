@@ -144,7 +144,7 @@ describe('public transparency pages', () => {
     const member = await makeMember()
     const submission = await makeSubmission(member.id, member.memberCode, APRIL, {
       sendingDate: '2026-05-03',
-      amountPaisa: DUE_PAISA, // covers the due but not the ৳200 fine
+      amountPaisa: DUE_PAISA, // covers the due but not the ৳ 200 fine
     })
     await approveSubmission(submission.id, admin.id)
 

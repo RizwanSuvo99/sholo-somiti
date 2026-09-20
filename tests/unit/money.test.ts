@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { formatBDT, fromPaisa, sumPaisa, toBnDigits, toEnDigits, toPaisa } from '@/lib/money'
+import {
+  CURRENCY_GAP,
+  formatBDT,
+  fromPaisa,
+  sumPaisa,
+  toBnDigits,
+  toEnDigits,
+  toPaisa,
+} from '@/lib/money'
 
 describe('digit conversion', () => {
   it('renders Latin digits as Bengali', () => {
@@ -29,7 +37,7 @@ describe('toPaisa', () => {
   })
 
   it('accepts what people actually type', () => {
-    expect(toPaisa('৳2,000')).toBe(200_000)
+    expect(toPaisa('৳ 2,000')).toBe(200_000)
     expect(toPaisa('  1,500  ')).toBe(150_000)
     expect(toPaisa('২০০')).toBe(20_000)
   })
@@ -49,21 +57,33 @@ describe('toPaisa', () => {
 })
 
 describe('formatBDT', () => {
+  it('separates the symbol from the amount', () => {
+    // Without this the headstrokes of ৳ and ১ join and the digit reads as part
+    // of the symbol.
+    expect(formatBDT(10_000)).toBe(`৳${CURRENCY_GAP}১০০`)
+    expect(CURRENCY_GAP).toBe('\u202F')
+  })
+
+  it('keeps the symbol and amount on one line', () => {
+    // A narrow NO-BREAK space, so an amount never wraps after the ৳.
+    expect(formatBDT(10_000)).not.toContain(' ')
+  })
+
   it('formats whole taka in Bengali digits by default', () => {
-    expect(formatBDT(20_000)).toBe('৳২০০')
+    expect(formatBDT(20_000)).toBe('৳ ২০০')
   })
 
   it('groups South Asian style — last three, then pairs', () => {
-    expect(formatBDT(12_345_67_00, { bnDigits: false })).toBe('৳12,34,567')
+    expect(formatBDT(12_345_67_00, { bnDigits: false })).toBe('৳ 12,34,567')
   })
 
   it('shows paisa only when there are any', () => {
-    expect(formatBDT(20_050, { bnDigits: false })).toBe('৳200.50')
-    expect(formatBDT(20_000, { bnDigits: false })).toBe('৳200')
+    expect(formatBDT(20_050, { bnDigits: false })).toBe('৳ 200.50')
+    expect(formatBDT(20_000, { bnDigits: false })).toBe('৳ 200')
   })
 
   it('can be forced to two decimal places', () => {
-    expect(formatBDT(20_000, { bnDigits: false, decimals: true })).toBe('৳200.00')
+    expect(formatBDT(20_000, { bnDigits: false, decimals: true })).toBe('৳ 200.00')
   })
 
   it('can omit the symbol', () => {
@@ -71,8 +91,8 @@ describe('formatBDT', () => {
   })
 
   it('formats zero and negatives', () => {
-    expect(formatBDT(0, { bnDigits: false })).toBe('৳0')
-    expect(formatBDT(-20_000, { bnDigits: false })).toBe('-৳200')
+    expect(formatBDT(0, { bnDigits: false })).toBe('৳ 0')
+    expect(formatBDT(-20_000, { bnDigits: false })).toBe('-৳ 200')
   })
 })
 

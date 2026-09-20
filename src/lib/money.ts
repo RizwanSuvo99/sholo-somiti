@@ -12,6 +12,16 @@
 
 export const PAISA_PER_TAKA = 100
 
+/**
+ * Narrow no-break space, set between ৳ and the amount.
+ *
+ * The taka sign and the Bengali digits all carry the headstroke, so with no gap
+ * their headstrokes join and the first digit is read as part of the symbol —
+ * ৳১,২৭,০০০ looks like the ১ is missing. A narrow space separates them without
+ * opening a visible gap, and being no-break it keeps the amount on one line.
+ */
+export const CURRENCY_GAP = '\u202F'
+
 const BN_DIGITS = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'] as const
 const EN_DIGITS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'] as const
 
@@ -76,7 +86,7 @@ export function formatBDT(paisa: number, options: FormatOptions = {}): string {
     text += `.${String(remainder).padStart(2, '0')}`
   }
   if (bnDigits) text = toBnDigits(text)
-  if (symbol) text = `৳${text}`
+  if (symbol) text = `৳${CURRENCY_GAP}${text}`
   return negative ? `-${text}` : text
 }
 
