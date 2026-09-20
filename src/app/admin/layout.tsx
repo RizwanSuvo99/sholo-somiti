@@ -1,8 +1,10 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getAdmin } from '@/lib/auth/require-admin'
 import { prisma } from '@/lib/prisma'
 import { Sidebar } from '@/components/admin/sidebar'
 import { LogoutButton } from '@/components/admin/logout-button'
+import { IconGlobe } from '@/components/ui/icon'
 
 export default async function AdminLayout({ children }: LayoutProps<'/admin'>) {
   // Middleware already redirected unauthenticated visitors, but it only checks a
@@ -25,7 +27,18 @@ export default async function AdminLayout({ children }: LayoutProps<'/admin'>) {
               <p className="text-xs text-muted">{admin.name} · প্রশাসক</p>
             </div>
           </div>
-          <LogoutButton />
+          <div className="flex items-center gap-2">
+            {/* Same tab on purpose: the browser's back button returns here, and
+                the public footer links straight back to the panel. */}
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-panel px-3.5 py-1.5 text-sm text-ink shadow-sm transition hover:border-brand-ring hover:bg-surface"
+            >
+              <IconGlobe className="size-4 text-muted" />
+              সাইট দেখুন
+            </Link>
+            <LogoutButton />
+          </div>
         </div>
       </header>
 
