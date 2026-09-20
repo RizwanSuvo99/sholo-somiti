@@ -147,6 +147,32 @@ exact.
 An ESLint rule bans local-time `Date` getters everywhere except `due-cycle.ts`, and `pnpm test:tz`
 runs the suite under four timezones bracketing Dhaka, so an off-by-one cannot pass unnoticed.
 
+### Arrears, and what one payment settles
+
+A member who misses a deadline owes that month's subscription, a ৳200 fine, and
+then the next month's subscription too — and they send the lot in one transfer
+with one transaction reference. So a payment is not tied to a single month.
+
+Missing several months in a row means **a fine per month**: three missed months
+is three × ৳200, not one fine that grew.
+
+`src/lib/settlement.ts` spreads a payment across every month it can cover,
+oldest first, and within a month the subscription before its fine. That ordering
+matters — a member who is slightly short should end up having paid their
+subscription and still owing the fine, not the reverse.
+
+It is pure, and both callers use it: the payment form quotes with it and the
+approval settles with it, so what a member is told they owe and what the ledger
+records come from the same arithmetic. The review screen previews the same plan,
+so an admin can see which months a payment clears before approving it.
+
+A month counts as paid once its subscription is covered; an unpaid fine stays
+outstanding against it without holding the month open. A month that receives
+nothing stays open rather than looking settled.
+
+`DuePayment.sourceSubmissionId` is deliberately **not** unique: one proof now
+backs several rows.
+
 ### On-time vs late is judged by the sending date
 
 Never by the review date — a slow admin review must not cost a member ৳200.

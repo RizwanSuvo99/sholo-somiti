@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Field, Input, Select } from '@/components/ui/field'
 import { Alert } from '@/components/ui/alert'
@@ -15,13 +15,17 @@ import {
   type CivilDate,
 } from '@/lib/due-cycle'
 import { COLLECTION_START } from '@/lib/society'
-import { formatBDT } from '@/lib/money'
+import { formatBDT, fromPaisa } from '@/lib/money'
+import { fineOwedFor, totalOwed } from '@/lib/settlement'
+import { compareDueMonth, type DueMonth } from '@/lib/due-cycle'
 
 type EligibleMonth = {
   dueMonth: number
   dueYear: number
   label: string
   amountPaisa: number | null
+  outstandingDuePaisa: number
+  chargedFinePaisa: number
   blocked: boolean
   blockedReason: string | null
   isCurrent: boolean
@@ -53,6 +57,9 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
   const [lookup, setLookup] = useState<Lookup | null>(null)
   const [lookupState, setLookupState] = useState<'idle' | 'loading' | 'missing'>('idle')
   const [selectedMonth, setSelectedMonth] = useState<string>('')
+  // Null means "use the quoted total". Only a member who edits the field takes
+  // it over, so the quote is derived rather than kept in sync by an effect.
+  const [amountOverride, setAmountOverride] = useState<string | null>(null)
   const [medium, setMedium] = useState<string>('NPSB')
   const [screenshot, setScreenshot] = useState<UploadedImage | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -64,6 +71,46 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
   )
 
   /**
+   * Everything this payment would clear: the chosen month and any earlier one
+   * still owing, each with its own ৳২০০ fine if its deadline has passed.
+   *
+   * A month with its own submission awaiting review is left out — that money is
+   * already accounted for.
+   *
+   * The fine is worked out from the date the member says they sent the money,
+   * using the same helper the approval uses, so the figure quoted here is the
+   * one the ledger will record.
+   */
+  const coverage = useMemo(() => {
+    if (!lookup || !chosen) return null
+
+    const basis = sendingDate ?? instantToDhakaCivil(new Date())
+    const upTo: DueMonth = { dueYear: chosen.dueYear, dueMonth: chosen.dueMonth }
+
+    const months = lookup.eligibleDueMonths
+      .filter(
+        (month) =>
+          !month.blocked &&
+          compareDueMonth({ dueYear: month.dueYear, dueMonth: month.dueMonth }, upTo) <= 0,
+      )
+      .map((month) => {
+        const dm: DueMonth = { dueYear: month.dueYear, dueMonth: month.dueMonth }
+        return {
+          ...dm,
+          label: month.label,
+          duePaisa: month.outstandingDuePaisa,
+          finePaisa: fineOwedFor(dm, basis, month.chargedFinePaisa),
+        }
+      })
+      .sort((a, b) => compareDueMonth(a, b))
+
+    return { months, totalPaisa: totalOwed(months) }
+  }, [lookup, chosen, sendingDate])
+
+  const quotedAmount = coverage ? String(fromPaisa(coverage.totalPaisa)) : ''
+  const amount = amountOverride ?? quotedAmount
+
+  /**
    * The third layer of the one-per-month rule: warn and block before the member
    * fills out anything else, rather than after they have uploaded a screenshot.
    */
@@ -71,6 +118,7 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
     setMemberCode(code)
     setLookup(null)
     setSelectedMonth('')
+    setAmountOverride(null)
 
     // Fall back to the name from the dropdown straight away, so the field is
     // filled even if the lookup is slow or fails.
@@ -136,7 +184,7 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
           memberCode,
           name,
           sendingDate: formatCivilDate(sendingDate),
-          amount: String(data.get('amount') ?? ''),
+          amount,
           transactionRef: String(data.get('transactionRef') ?? ''),
           paymentMedium: medium,
           bankName: String(data.get('bankName') ?? '') || null,
@@ -224,7 +272,10 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
         label="টাকা পাঠানোর তারিখ"
         required
         value={sendingDate}
-        onChange={setSendingDate}
+        onChange={(date) => {
+          setSendingDate(date)
+          setAmountOverride(null)
+        }}
         error={fieldErrors.sendingDate}
         min={dueWindow(COLLECTION_START).startCivil}
         max={instantToDhakaCivil(new Date())}
@@ -234,11 +285,17 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
       {/* The extra field: which month this pays for. */}
       {lookup && !allBlocked && (
         <Field
-          label="কোন মাসের চাঁদা"
+          label="কোন মাস পর্যন্ত চাঁদা দিচ্ছেন"
           required
-          hint="সাধারণত চলতি মাস। আগের কোনো মাস বাকি থাকলে সেটিও বেছে নিতে পারেন — বিলম্বে পরিশোধে ৳২০০ জরিমানা প্রযোজ্য।"
+          hint="আগের কোনো মাস বাকি থাকলে সেগুলোসহ মোট পরিমাণ নিচে দেখানো হবে — প্রতিটি বকেয়া মাসের জন্য ৳২০০ জরিমানা যুক্ত হয়।"
         >
-          <Select value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}>
+          <Select
+            value={selectedMonth}
+            onChange={(event) => {
+              setSelectedMonth(event.target.value)
+              setAmountOverride(null)
+            }}
+          >
             {lookup.eligibleDueMonths.map((month) => (
               <option
                 key={`${month.dueYear}-${month.dueMonth}`}
@@ -257,15 +314,44 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
       )}
 
       {/* 4. Amount */}
+      {coverage && coverage.months.length > 0 && (
+        <div className="rounded-xl border border-line bg-surface p-3.5 text-sm">
+          <p className="mb-2 font-medium">যা পরিশোধ হবে</p>
+          <ul className="space-y-1">
+            {coverage.months.map((month) => (
+              <li key={`${month.dueYear}-${month.dueMonth}`} className="flex justify-between gap-3">
+                <span className="text-muted">
+                  {month.label}
+                  {month.finePaisa > 0 && (
+                    <span className="text-warn"> + জরিমানা</span>
+                  )}
+                </span>
+                <span className="tabular font-medium">
+                  {formatBDT(month.duePaisa + month.finePaisa)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 flex justify-between gap-3 border-t border-line pt-2 font-semibold">
+            <span>মোট</span>
+            <span className="tabular">{formatBDT(coverage.totalPaisa)}</span>
+          </p>
+        </div>
+      )}
+
       <Field
         label="পরিমাণ (টাকা)"
         required
         error={fieldErrors.amount}
-        hint={
-          chosen?.amountPaisa != null ? `এই মাসের চাঁদা ${formatBDT(chosen.amountPaisa)}` : undefined
-        }
+        hint="উপরের হিসাব অনুযায়ী পূরণ হয়েছে — কম পাঠালে পুরোনো মাস আগে পরিশোধ হবে"
       >
-        <Input name="amount" inputMode="decimal" required placeholder="৫০০" />
+        <Input
+          inputMode="decimal"
+          required
+          placeholder="৫০০"
+          value={amount}
+          onChange={(event) => setAmountOverride(event.target.value)}
+        />
       </Field>
 
       {/* 5. Transaction ID */}

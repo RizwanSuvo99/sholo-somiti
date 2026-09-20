@@ -4,7 +4,8 @@ import { Card, CardHeader } from '@/components/ui/card'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Money } from '@/components/shared/money'
 import { dueMonthLabel, civilDateLabel, PAYMENT_MEDIUM_BN } from '@/lib/bn'
-import { dbDateToCivil, dueWindow, ordinal } from '@/lib/due-cycle'
+import { dbDateToCivil } from '@/lib/due-cycle'
+import { previewSettlement } from '@/lib/services/submissions'
 import { toBnDigits } from '@/lib/money'
 import { paginate } from '@/lib/paginate'
 import { Pagination } from '@/components/shared/pagination'
@@ -41,40 +42,17 @@ export default async function SubmissionsPage({
 
   // What each submission would settle as, so the admin sees the consequence
   // (on time or late, and any ৳200 fine) before deciding.
+  // What approving each one would actually settle. A payment can clear several
+  // months at once, so the admin needs to see the breakdown before deciding —
+  // not just whether one month is late.
   const previews = await Promise.all(
-    submissions.map(async (submission) => {
-      const target = { dueYear: submission.dueYear, dueMonth: submission.dueMonth }
-      const [setting, existing] = await Promise.all([
-        prisma.monthlyDueSetting.findUnique({
-          where: { year_month: { year: target.dueYear, month: target.dueMonth } },
-          select: { amountPaisa: true },
-        }),
-        prisma.duePayment.findUnique({
-          where: {
-            memberId_year_month: {
-              memberId: submission.memberId,
-              year: target.dueYear,
-              month: target.dueMonth,
-            },
-          },
-          select: { finePaisa: true, status: true },
-        }),
-      ])
-
-      const sending = dbDateToCivil(submission.sendingDate)
-      const late = ordinal(sending) > ordinal(dueWindow(target).endCivil)
-
-      return {
-        id: submission.id,
-        late,
-        amountDuePaisa: setting?.amountPaisa ?? null,
-        alreadyPaid: existing?.status === 'PAID_ON_TIME' || existing?.status === 'PAID_LATE',
-        alreadyFinedPaisa: existing?.finePaisa ?? 0,
-      }
-    }),
+    submissions.map(async (submission) => ({
+      id: submission.id,
+      plan: await previewSettlement(submission.id),
+    })),
   )
 
-  const previewOf = new Map(previews.map((p) => [p.id, p]))
+  const previewOf = new Map(previews.map((p) => [p.id, p.plan]))
 
   return (
     <div className="space-y-4">
@@ -103,7 +81,7 @@ export default async function SubmissionsPage({
       ) : (
         <div className="space-y-4">
           {submissions.map((submission) => {
-            const preview = previewOf.get(submission.id)!
+            const preview = previewOf.get(submission.id) ?? null
             return (
               <Card key={submission.id}>
                 <CardHeader
@@ -133,10 +111,10 @@ export default async function SubmissionsPage({
                           : `${PAYMENT_MEDIUM_BN[submission.paymentMedium]} — ${submission.bankName ?? ''}`
                       }
                     />
-                    {preview.amountDuePaisa !== null && (
+                    {preview && (
                       <Detail
-                        label="নির্ধারিত চাঁদা"
-                        value={<Money paisa={preview.amountDuePaisa} />}
+                        label="মোট বকেয়া"
+                        value={<Money paisa={preview.totalOwedPaisa} />}
                       />
                     )}
                     {submission.rejectionReason && (
@@ -165,8 +143,7 @@ export default async function SubmissionsPage({
                 {submission.status === 'PENDING' && (
                   <ReviewCard
                     submissionId={submission.id}
-                    late={preview.late}
-                    alreadyPaid={preview.alreadyPaid}
+                    plan={preview}
                     dueMonthLabel={dueMonthLabel(submission)}
                   />
                 )}

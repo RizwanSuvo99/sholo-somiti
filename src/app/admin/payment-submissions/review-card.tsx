@@ -5,16 +5,30 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/field'
 import { Alert } from '@/components/ui/alert'
+import { Money } from '@/components/shared/money'
+
+type SettlementPlan = {
+  months: {
+    dueMonth: number
+    dueYear: number
+    label: string
+    toDue: number
+    toFine: number
+    dueSettled: boolean
+    late: boolean
+  }[]
+  totalOwedPaisa: number
+  shortfallPaisa: number
+  surplusPaisa: number
+}
 
 export function ReviewCard({
   submissionId,
-  late,
-  alreadyPaid,
+  plan,
   dueMonthLabel,
 }: {
   submissionId: string
-  late: boolean
-  alreadyPaid: boolean
+  plan: SettlementPlan | null
   dueMonthLabel: string
 }) {
   const router = useRouter()
@@ -49,17 +63,47 @@ export function ReviewCard({
     <div className="space-y-3 border-t border-line bg-surface p-5">
       {error && <Alert tone="danger">{error}</Alert>}
 
-      {alreadyPaid ? (
+      {!plan || plan.months.length === 0 ? (
         <Alert tone="warn">
-          {dueMonthLabel} মাসের চাঁদা ইতিমধ্যে পরিশোধিত। অতিরিক্ত জমা হলে আয়-ব্যয় পাতায় ম্যানুয়াল
-          এন্ট্রি দিন।
+          {dueMonthLabel} মাস পর্যন্ত সব চাঁদা ইতিমধ্যে পরিশোধিত। অতিরিক্ত জমা হলে আয়-ব্যয় পাতায়
+          ম্যানুয়াল এন্ট্রি দিন।
         </Alert>
       ) : (
-        <Alert tone={late ? 'warn' : 'success'}>
-          অনুমোদন করলে {dueMonthLabel} মাসের চাঁদা{' '}
-          <strong>{late ? 'বিলম্বে পরিশোধিত' : 'সময়মতো পরিশোধিত'}</strong> হিসেবে যুক্ত হবে
-          {late && ' এবং ৳২০০ জরিমানা প্রযোজ্য হবে'}।
-        </Alert>
+        <div className="rounded-xl border border-line bg-panel p-3.5 text-sm">
+          <p className="mb-2 font-medium">অনুমোদন করলে যা পরিশোধিত হবে</p>
+          <ul className="space-y-1">
+            {plan.months.map((month) => (
+              <li key={`${month.dueYear}-${month.dueMonth}`} className="flex justify-between gap-3">
+                <span>
+                  {month.label}
+                  {month.late && <span className="text-warn"> · বিলম্বে</span>}
+                  {!month.dueSettled && <span className="text-danger"> · আংশিক</span>}
+                </span>
+                <span className="tabular">
+                  <Money paisa={month.toDue} />
+                  {month.toFine > 0 && (
+                    <span className="text-warn">
+                      {' + '}
+                      <Money paisa={month.toFine} /> জরিমানা
+                    </span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          {plan.shortfallPaisa > 0 && (
+            <Alert tone="warn" className="mt-2">
+              <Money paisa={plan.shortfallPaisa} /> কম দেওয়া হয়েছে — পুরোনো মাস আগে পরিশোধ হবে,
+              বাকিটা বকেয়া থাকবে।
+            </Alert>
+          )}
+          {plan.surplusPaisa > 0 && (
+            <Alert tone="info" className="mt-2">
+              <Money paisa={plan.surplusPaisa} /> অতিরিক্ত — অন্যান্য আয় হিসেবে যুক্ত হবে।
+            </Alert>
+          )}
+        </div>
       )}
 
       {rejecting ? (

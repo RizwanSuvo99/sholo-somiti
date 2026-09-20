@@ -2,6 +2,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SubmissionForm } from '@/app/(site)/pay/submit/submission-form'
+import { addMonths, currentDueMonth } from '@/lib/due-cycle'
+import { dueMonthLabel } from '@/lib/bn'
 
 const MEMBERS = [
   { memberCode: 'NHSS-25001', name: 'আব্দুল ইসলাম', photoUrl: null },
@@ -14,23 +16,44 @@ async function pickMember(user: ReturnType<typeof userEvent.setup>, name: RegExp
   await user.click(screen.getByRole('option', { name }))
 }
 
+/**
+ * Months relative to the cycle now open.
+ *
+ * Fixed dates would drift: a payment for a month whose deadline has passed is
+ * genuinely late, so a hard-coded "current" month starts attracting a fine once
+ * the calendar moves past it. The month now open never can — its deadline is
+ * ahead by definition.
+ */
+const CURRENT = currentDueMonth()
+const monthsAgo = (n: number) => addMonths(CURRENT, -n)
+
+const month = (
+  dueYear: number,
+  dueMonth: number,
+  label: string,
+  outstandingDuePaisa: number,
+  chargedFinePaisa = 0,
+  extra: Record<string, unknown> = {},
+) => ({
+  dueMonth,
+  dueYear,
+  label,
+  amountPaisa: outstandingDuePaisa,
+  outstandingDuePaisa,
+  chargedFinePaisa,
+  blocked: false,
+  blockedReason: null,
+  isCurrent: false,
+  ...extra,
+})
+
 function lookupResponse(memberCode: string, overrides: Record<string, unknown> = {}) {
   const member = MEMBERS.find((m) => m.memberCode === memberCode)
   return {
     found: true,
     member: { id: memberCode, memberCode, name: member?.name ?? '' },
     currentDue: { dueMonth: 10, dueYear: 2026, label: 'অক্টোবর ২০২৬', amountPaisa: 50_000 },
-    eligibleDueMonths: [
-      {
-        dueMonth: 10,
-        dueYear: 2026,
-        label: 'অক্টোবর ২০২৬',
-        amountPaisa: 50_000,
-        blocked: false,
-        blockedReason: null,
-        isCurrent: true,
-      },
-    ],
+    eligibleDueMonths: [month(2026, 10, 'অক্টোবর ২০২৬', 50_000, 0, { isCurrent: true })],
     ...overrides,
   }
 }
@@ -173,6 +196,112 @@ describe('public submission form — ID selector', () => {
       expect(screen.getByText(/যাচাইয়ের অপেক্ষায় আছে/)).toBeInTheDocument(),
     )
     expect(screen.getByRole('button', { name: /জমা দিন/ })).toBeDisabled()
+  })
+
+  it('fills the amount from the subscription set for the month', async () => {
+    vi.stubGlobal('fetch', mockLookup())
+    const user = userEvent.setup()
+
+    render(<SubmissionForm members={MEMBERS} />)
+    await pickMember(user, /আব্দুল ইসলাম/)
+
+    await waitFor(() => expect(screen.getByLabelText(/পরিমাণ/)).toHaveValue('500'))
+  })
+
+  it('adds up arrears, their fines and the current month', async () => {
+    // November missed and fined, December missed and fined, January current:
+    // ৫০০ + ২০০ + ৫০০ + ২০০ + ৫০০ = ১৯০০.
+    vi.stubGlobal(
+      'fetch',
+      mockLookup({
+        eligibleDueMonths: [
+          month(monthsAgo(2).dueYear, monthsAgo(2).dueMonth, dueMonthLabel(monthsAgo(2)), 50_000, 20_000),
+          month(monthsAgo(1).dueYear, monthsAgo(1).dueMonth, dueMonthLabel(monthsAgo(1)), 50_000, 20_000),
+          month(CURRENT.dueYear, CURRENT.dueMonth, dueMonthLabel(CURRENT), 50_000, 0, {
+            isCurrent: true,
+          }),
+        ],
+      }),
+    )
+    const user = userEvent.setup()
+
+    render(<SubmissionForm members={MEMBERS} />)
+    await pickMember(user, /আব্দুল ইসলাম/)
+
+    await waitFor(() => expect(screen.getByLabelText(/পরিমাণ/)).toHaveValue('1900'))
+
+    // And the member can see what makes it up.
+    expect(screen.getByText('যা পরিশোধ হবে')).toBeInTheDocument()
+    expect(screen.getByText(dueMonthLabel(monthsAgo(2)))).toBeInTheDocument()
+    expect(screen.getByText('৳১,৯০০')).toBeInTheDocument()
+  })
+
+  it('only covers months up to the one chosen', async () => {
+    vi.stubGlobal(
+      'fetch',
+      mockLookup({
+        eligibleDueMonths: [
+          month(monthsAgo(1).dueYear, monthsAgo(1).dueMonth, dueMonthLabel(monthsAgo(1)), 50_000, 20_000),
+          month(CURRENT.dueYear, CURRENT.dueMonth, dueMonthLabel(CURRENT), 50_000, 0, {
+            isCurrent: true,
+          }),
+        ],
+      }),
+    )
+    const user = userEvent.setup()
+
+    render(<SubmissionForm members={MEMBERS} />)
+    await pickMember(user, /আব্দুল ইসলাম/)
+    await waitFor(() => expect(screen.getByLabelText(/পরিমাণ/)).toHaveValue('1200'))
+
+    // Paying only up to the older month drops the current one from the total.
+    const older = monthsAgo(1)
+    await user.selectOptions(
+      screen.getByLabelText(/কোন মাস পর্যন্ত/),
+      `${older.dueYear}-${older.dueMonth}`,
+    )
+    await waitFor(() => expect(screen.getByLabelText(/পরিমাণ/)).toHaveValue('700'))
+  })
+
+  it('leaves out a month already awaiting review', async () => {
+    // That money is already accounted for; charging for it again would take
+    // payment twice.
+    vi.stubGlobal(
+      'fetch',
+      mockLookup({
+        eligibleDueMonths: [
+          month(monthsAgo(1).dueYear, monthsAgo(1).dueMonth, dueMonthLabel(monthsAgo(1)), 50_000, 20_000, {
+            blocked: true,
+            blockedReason: 'এই মাসের আবেদন যাচাইয়ের অপেক্ষায় আছে',
+          }),
+          month(CURRENT.dueYear, CURRENT.dueMonth, dueMonthLabel(CURRENT), 50_000, 0, {
+            isCurrent: true,
+          }),
+        ],
+      }),
+    )
+    const user = userEvent.setup()
+
+    render(<SubmissionForm members={MEMBERS} />)
+    await pickMember(user, /আব্দুল ইসলাম/)
+
+    await waitFor(() => expect(screen.getByLabelText(/পরিমাণ/)).toHaveValue('500'))
+    expect(screen.queryByText(dueMonthLabel(monthsAgo(1)))).not.toBeInTheDocument()
+  })
+
+  it('lets the member pay less than the quoted total', async () => {
+    vi.stubGlobal('fetch', mockLookup())
+    const user = userEvent.setup()
+
+    render(<SubmissionForm members={MEMBERS} />)
+    await pickMember(user, /আব্দুল ইসলাম/)
+    await waitFor(() => expect(screen.getByLabelText(/পরিমাণ/)).toHaveValue('500'))
+
+    const amount = screen.getByLabelText(/পরিমাণ/)
+    await user.clear(amount)
+    await user.type(amount, '300')
+
+    expect(amount).toHaveValue('300')
   })
 
   it('switches the conditional fields with the payment medium', async () => {

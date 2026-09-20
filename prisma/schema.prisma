@@ -147,9 +147,11 @@ model DuePayment {
   status DuePaymentStatus @default(PENDING)
   note   String?
 
-  /// The member submission this was settled from, if any. Unique, so one proof
-  /// can never back two months.
-  sourceSubmissionId String? @unique @map("source_submission_id") @db.Uuid
+  /// The member submission this was settled from, if any.
+  ///
+  /// Deliberately not unique: one transfer clears a missed month, its fine and
+  /// the current month together, so a single proof backs several rows.
+  sourceSubmissionId String? @map("source_submission_id") @db.Uuid
   importBatchId      String? @map("import_batch_id") @db.Uuid
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -163,6 +165,7 @@ model DuePayment {
   /// The backbone of rollover idempotency: re-running the job cannot create a
   /// second row for the same member and month.
   @@unique([memberId, year, month])
+  @@index([sourceSubmissionId])
   @@index([year, month, status])
   @@index([status])
   @@map("due_payments")
@@ -209,7 +212,8 @@ model PaymentSubmission {
 
   member       Member        @relation(fields: [memberId], references: [id], onDelete: Restrict)
   reviewedBy   Admin?        @relation("ReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
-  duePayment   DuePayment?
+  /// One transfer can clear several months at once, so this is a list.
+  duePayments  DuePayment[]
   transactions Transaction[]
 
   /// NOTE: the rule "one active submission per member per due month" is a PARTIAL
