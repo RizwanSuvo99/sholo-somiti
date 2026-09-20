@@ -150,7 +150,8 @@ dark text on a dark page.
 
 ## Pagination
 
-Every listing shows **10 rows per page** (`PAGE_SIZE` in `src/lib/paginate.ts`).
+Every listing shows **15 rows per page** (`PAGE_SIZE` in `src/lib/paginate.ts`) — one
+constant, applied to all ten paginated listings.
 
 Paging is server-side: each control is a real `<Link>`, so it works without
 JavaScript and every page is bookmarkable. Existing query parameters are carried

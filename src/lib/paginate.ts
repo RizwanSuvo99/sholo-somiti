@@ -1,5 +1,5 @@
 /** Rows per page across every listing in the app. */
-export const PAGE_SIZE = 10
+export const PAGE_SIZE = 15
 
 export type PageInfo = {
   page: number

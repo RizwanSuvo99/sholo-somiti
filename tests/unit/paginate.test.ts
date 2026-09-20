@@ -24,34 +24,50 @@ describe('parsePage', () => {
 })
 
 describe('pageCountOf', () => {
+  it('shows fifteen rows to a page', () => {
+    expect(PAGE_SIZE).toBe(15)
+  })
+
   it('is at least one page even with no rows', () => {
     expect(pageCountOf(0)).toBe(1)
   })
 
   it.each([
     [1, 1],
-    [10, 1],
-    [11, 2],
-    [28, 3],
+    [PAGE_SIZE, 1],
+    [PAGE_SIZE + 1, 2],
+    [PAGE_SIZE * 2, 2],
+    [PAGE_SIZE * 2 + 1, 3],
   ])('%i rows fills %i pages', (total, expected) => {
     expect(pageCountOf(total)).toBe(expected)
   })
 })
 
 describe('paginate', () => {
-  it('describes the first page of 28 rows', () => {
-    expect(paginate(28, undefined)).toMatchObject({
+  it('describes the first page of a full listing', () => {
+    expect(paginate(PAGE_SIZE * 2 + 3, undefined)).toMatchObject({
       page: 1,
       pageCount: 3,
       skip: 0,
       take: PAGE_SIZE,
       from: 1,
-      to: 10,
+      to: PAGE_SIZE,
     })
   })
 
   it('describes a partial last page', () => {
-    expect(paginate(28, '3')).toMatchObject({ page: 3, skip: 20, from: 21, to: 28 })
+    const total = PAGE_SIZE * 2 + 3
+    expect(paginate(total, '3')).toMatchObject({
+      page: 3,
+      skip: PAGE_SIZE * 2,
+      from: PAGE_SIZE * 2 + 1,
+      to: total,
+    })
+  })
+
+  it('fits the society on a single page', () => {
+    // 29 members: one page rather than the three that ten-a-page gave.
+    expect(paginate(29, undefined)).toMatchObject({ pageCount: 2, to: PAGE_SIZE })
   })
 
   it('reports an empty range with no rows', () => {
