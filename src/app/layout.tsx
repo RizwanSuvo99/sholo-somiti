@@ -1,15 +1,20 @@
 import type { Metadata } from 'next'
-import { Hind_Siliguri } from 'next/font/google'
+import { Noto_Sans_Bengali } from 'next/font/google'
 import './globals.css'
 import { ToastProvider } from '@/components/ui/toast'
 import { ThemeProvider } from '@/components/ui/theme-provider'
 import { THEME_INIT_SCRIPT } from '@/lib/theme'
 
 /**
- * Hind Siliguri carries both Bengali and Latin glyphs, so member names, amounts
- * and NHSS codes all render in one typeface rather than falling back mid-line.
+ * Noto Sans Bengali, chosen for complete and consistent coverage of the Bengali
+ * block — digits included.
+ *
+ * The previous face rendered ১ from a fallback at different metrics, so amounts
+ * like ৳১,২৭,০০০ appeared to be missing their first digit. Noto is maintained
+ * specifically to avoid gaps like that, which matters here because every figure
+ * on the site is written in Bengali numerals.
  */
-const bengali = Hind_Siliguri({
+const bengali = Noto_Sans_Bengali({
   variable: '--font-bengali',
   subsets: ['bengali', 'latin'],
   weight: ['300', '400', '500', '600', '700'],

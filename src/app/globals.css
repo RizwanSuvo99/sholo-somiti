@@ -18,7 +18,12 @@
  * explicit `dark:` variants instead.
  */
 @theme {
-  --font-sans: var(--font-bengali), system-ui, sans-serif;
+  /* Bengali-capable fallbacks come before the generic ones: if the webfont
+     fails to load, a Latin system font would drop back to whatever the OS
+     picks per character and render Bengali digits at mismatched sizes. */
+  --font-sans:
+    var(--font-bengali), 'Noto Sans Bengali', 'Nirmala UI', 'Shonar Bangla', 'Vrinda',
+    'Kalpurush', 'SolaimanLipi', system-ui, sans-serif;
 
   --color-surface: #f6f7fb;
   --color-panel: #ffffff;
