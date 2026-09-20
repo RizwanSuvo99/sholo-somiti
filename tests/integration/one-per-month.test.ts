@@ -124,6 +124,30 @@ describe('one active submission per member per due month', () => {
     expect(await prisma.paymentSubmission.count()).toBe(3)
   })
 
+  it('refuses a month the admin has not priced', async () => {
+    // Reachable directly even though the form hides it, so the endpoint checks.
+    const member = await makeMember()
+    await prisma.monthlyDueSetting.deleteMany({ where: { year: 2026, month: 4 } })
+
+    await expect(createSubmission(submissionInput(member.memberCode))).rejects.toMatchObject({
+      status: 409,
+    })
+    expect(await prisma.paymentSubmission.count()).toBe(0)
+  })
+
+  it('accepts the month once it has been priced', async () => {
+    const member = await makeMember()
+    await prisma.monthlyDueSetting.deleteMany({ where: { year: 2026, month: 4 } })
+
+    await expect(createSubmission(submissionInput(member.memberCode))).rejects.toBeInstanceOf(
+      AppError,
+    )
+
+    await makeDueSetting(APRIL, 50_000)
+    const created = await createSubmission(submissionInput(member.memberCode))
+    expect(created.status).toBe('PENDING')
+  })
+
   it('refuses a due month that has not been reached yet', async () => {
     const member = await makeMember()
 

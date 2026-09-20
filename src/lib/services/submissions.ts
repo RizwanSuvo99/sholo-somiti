@@ -27,6 +27,8 @@ export type EligibleMonth = {
   outstandingDuePaisa: number
   /** A fine already on the ledger for this month, less anything paid towards it. */
   chargedFinePaisa: number
+  /** Whether the admin has set a subscription for this month yet. */
+  amountSet: boolean
   blocked: boolean
   blockedReason: string | null
   isCurrent: boolean
@@ -116,6 +118,12 @@ export async function lookupMember(
     const setting = amountOf.get(key) ?? null
     const billed = row ? (row.amountDuePaisa || (setting ?? 0)) : (setting ?? 0)
 
+    // A month the admin has not priced yet cannot be paid: the form would quote
+    // nothing and approval would file the money as surplus instead of a
+    // subscription. A month already billed on the member's own row counts as
+    // priced even if the setting was removed since.
+    const amountSet = setting !== null || (row?.amountDuePaisa ?? 0) > 0
+
     return {
       dueMonth: dm.dueMonth,
       dueYear: dm.dueYear,
@@ -123,9 +131,11 @@ export async function lookupMember(
       amountPaisa: row ? billed : setting,
       outstandingDuePaisa: Math.max(0, billed - (row?.amountPaidPaisa ?? 0)),
       chargedFinePaisa: Math.max(0, (row?.finePaisa ?? 0) - (row?.finePaidPaisa ?? 0)),
-      blocked: Boolean(status),
-      blockedReason:
-        status === 'PENDING'
+      amountSet,
+      blocked: Boolean(status) || !amountSet,
+      blockedReason: !amountSet
+        ? 'এই মাসের চাঁদার পরিমাণ এখনো নির্ধারণ করা হয়নি'
+        : status === 'PENDING'
           ? 'এই মাসের আবেদন যাচাইয়ের অপেক্ষায় আছে'
           : status === 'APPROVED'
             ? 'এই মাসের চাঁদা ইতিমধ্যে জমা হয়েছে'
@@ -185,6 +195,33 @@ export async function createSubmission(input: CreateSubmissionInput) {
       'CONFLICT',
       'Cannot pay for a future due month',
       'ভবিষ্যতের মাসের চাঁদা এখন জমা দেওয়া যাবে না',
+    )
+  }
+
+  // The month must have a price before anyone can pay it. The form hides such
+  // months, but this endpoint is public and reachable directly.
+  const [priced, billedRow] = await Promise.all([
+    prisma.monthlyDueSetting.findUnique({
+      where: { year_month: { year: target.dueYear, month: target.dueMonth } },
+      select: { amountPaisa: true },
+    }),
+    prisma.duePayment.findUnique({
+      where: {
+        memberId_year_month: {
+          memberId: member.id,
+          year: target.dueYear,
+          month: target.dueMonth,
+        },
+      },
+      select: { amountDuePaisa: true },
+    }),
+  ])
+
+  if (priced === null && (billedRow?.amountDuePaisa ?? 0) === 0) {
+    throw conflict(
+      'CONFLICT',
+      'No subscription has been set for that month',
+      `${dueMonthLabel(target)} মাসের চাঁদার পরিমাণ এখনো নির্ধারণ করা হয়নি — প্রশাসক নির্ধারণ করলে জমা দেওয়া যাবে`,
     )
   }
 

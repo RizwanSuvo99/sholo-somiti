@@ -3,6 +3,7 @@ import { currentDueMonth, deadlineInstant, instantToDhakaCivil } from '@/lib/due
 import { civilDateLabel, dueMonthLabel } from '@/lib/bn'
 import { formatBDT } from '@/lib/money'
 import { Card, CardBody } from '@/components/ui/card'
+import { Alert } from '@/components/ui/alert'
 import { getMemberOptions } from '@/lib/queries/public'
 import { BankDetails } from '@/components/public/bank-details'
 import { SubmissionForm } from './submission-form'
@@ -52,6 +53,13 @@ export default async function SubmitPage() {
           note="এরপরে ৳২০০ জরিমানা"
         />
       </div>
+
+      {!setting && (
+        <Alert tone="warn" className="mb-5" title="চলতি মাসের চাঁদা এখনো নির্ধারণ হয়নি">
+          {dueMonthLabel(current)} মাসের চাঁদার পরিমাণ প্রশাসক এখনো ঠিক করেননি, তাই এই মাসের জমা
+          এখন নেওয়া হচ্ছে না। আগের কোনো মাস বাকি থাকলে সেটি জমা দেওয়া যাবে।
+        </Alert>
+      )}
 
       <BankDetails className="mb-5" />
 

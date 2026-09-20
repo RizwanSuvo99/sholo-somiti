@@ -241,9 +241,14 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
       )}
 
       {allBlocked && (
-        <Alert tone="warn" title="নতুন আবেদন জমা দেওয়া যাবে না">
-          {lookup?.eligibleDueMonths[0]?.blockedReason ??
-            'আপনার সব মাসের আবেদন ইতিমধ্যে জমা আছে।'}
+        <Alert tone="warn" title="এখন জমা দেওয়া যাবে না">
+          <ul className="space-y-0.5">
+            {(lookup?.eligibleDueMonths ?? []).map((month) => (
+              <li key={`${month.dueYear}-${month.dueMonth}`}>
+                {month.label} — {month.blockedReason ?? 'জমা দেওয়া যাবে না'}
+              </li>
+            ))}
+          </ul>
         </Alert>
       )}
 
@@ -303,10 +308,11 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
                 disabled={month.blocked}
               >
                 {month.label}
-                {month.blocked ? ` — ${month.blockedReason}` : ''}
-                {!month.blocked && month.amountPaisa !== null
-                  ? ` (${formatBDT(month.amountPaisa)})`
-                  : ''}
+                {month.blocked
+                  ? ` — ${month.blockedReason}`
+                  : month.amountPaisa !== null
+                    ? ` (${formatBDT(month.amountPaisa)})`
+                    : ''}
               </option>
             ))}
           </Select>

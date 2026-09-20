@@ -147,6 +147,20 @@ exact.
 An ESLint rule bans local-time `Date` getters everywhere except `due-cycle.ts`, and `pnpm test:tz`
 runs the suite under four timezones bracketing Dhaka, so an off-by-one cannot pass unnoticed.
 
+### A month cannot be paid before it is priced
+
+Until an admin sets the subscription for a month, that month is not selectable
+on the payment form and the API refuses a submission for it. Quoting ৳0 would
+file the money as surplus instead of a subscription, which is a mess to unpick
+later.
+
+The rule is **per month**, not per form: if the current month has no price but
+an earlier one is still owed, the member can still pay the arrears. The page
+says plainly when the current month is not open yet.
+
+A month already billed on the member's own row counts as priced, even if the
+setting was removed since — they owe what they were billed.
+
 ### Arrears, and what one payment settles
 
 A member who misses a deadline owes that month's subscription, a ৳200 fine, and

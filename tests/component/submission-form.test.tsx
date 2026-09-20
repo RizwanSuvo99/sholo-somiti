@@ -41,6 +41,7 @@ const month = (
   amountPaisa: outstandingDuePaisa,
   outstandingDuePaisa,
   chargedFinePaisa,
+  amountSet: true,
   blocked: false,
   blockedReason: null,
   isCurrent: false,
@@ -302,6 +303,58 @@ describe('public submission form — ID selector', () => {
     await user.type(amount, '300')
 
     expect(amount).toHaveValue('300')
+  })
+
+  it('will not let a month be chosen before the admin has priced it', async () => {
+    // Quoting ৳০ would file the money as surplus instead of a subscription.
+    vi.stubGlobal(
+      'fetch',
+      mockLookup({
+        eligibleDueMonths: [
+          month(CURRENT.dueYear, CURRENT.dueMonth, dueMonthLabel(CURRENT), 0, 0, {
+            isCurrent: true,
+            amountSet: false,
+            blocked: true,
+            blockedReason: 'এই মাসের চাঁদার পরিমাণ এখনো নির্ধারণ করা হয়নি',
+          }),
+        ],
+      }),
+    )
+    const user = userEvent.setup()
+
+    render(<SubmissionForm members={MEMBERS} />)
+    await pickMember(user, /আব্দুল ইসলাম/)
+
+    await waitFor(() =>
+      expect(screen.getByText(/চাঁদার পরিমাণ এখনো নির্ধারণ করা হয়নি/)).toBeInTheDocument(),
+    )
+    expect(screen.getByRole('button', { name: /জমা দিন/ })).toBeDisabled()
+  })
+
+  it('still accepts arrears when only the current month is unpriced', async () => {
+    // The older month has a price and is genuinely owed, so it stays payable.
+    const older = monthsAgo(1)
+    vi.stubGlobal(
+      'fetch',
+      mockLookup({
+        eligibleDueMonths: [
+          month(older.dueYear, older.dueMonth, dueMonthLabel(older), 50_000, 20_000),
+          month(CURRENT.dueYear, CURRENT.dueMonth, dueMonthLabel(CURRENT), 0, 0, {
+            isCurrent: true,
+            amountSet: false,
+            blocked: true,
+            blockedReason: 'এই মাসের চাঁদার পরিমাণ এখনো নির্ধারণ করা হয়নি',
+          }),
+        ],
+      }),
+    )
+    const user = userEvent.setup()
+
+    render(<SubmissionForm members={MEMBERS} />)
+    await pickMember(user, /আব্দুল ইসলাম/)
+
+    await waitFor(() => expect(screen.getByLabelText(/পরিমাণ/)).toHaveValue('700'))
+    expect(screen.getByRole('button', { name: /জমা দিন/ })).not.toBeDisabled()
   })
 
   it('switches the conditional fields with the payment medium', async () => {
