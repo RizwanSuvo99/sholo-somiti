@@ -7,6 +7,7 @@ import { Field, Input, Select } from '@/components/ui/field'
 import { Alert } from '@/components/ui/alert'
 import { ImageUpload, type UploadedImage } from '@/components/shared/image-upload'
 import { MemberSelect } from '@/components/shared/member-select'
+import { MemberAvatar } from '@/components/shared/member-avatar'
 import { DateField } from '@/components/shared/date-picker'
 import {
   dueWindow,
@@ -63,6 +64,10 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [pending, setPending] = useState(false)
+
+  // Taken from the dropdown list so the photo appears the moment an ID is
+  // picked, without waiting for the lookup to come back.
+  const selectedMember = members.find((m) => m.memberCode === memberCode)
 
   const chosen = lookup?.eligibleDueMonths.find(
     (m) => `${m.dueYear}-${m.dueMonth}` === selectedMonth,
@@ -231,6 +236,36 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
         onChange={(code) => void onMemberSelected(code)}
         placeholder="— আইডি নম্বর বাছুন —"
       />
+
+      {/* A large photo of whoever was picked. The ID codes differ by one digit,
+          so a member selecting the line above or below their own would
+          otherwise file a payment against someone else's name. */}
+      {selectedMember && (
+        <section
+          aria-label="নির্বাচিত সদস্য"
+          className="flex items-center gap-4 rounded-2xl border border-brand-ring bg-brand-soft p-4"
+        >
+          <MemberAvatar
+            memberCode={selectedMember.memberCode}
+            name={name || selectedMember.name}
+            photoUrl={selectedMember.photoUrl}
+            size={88}
+            shape="squircle"
+            ring="ring-2 ring-white"
+            className="shadow-md"
+          />
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-brand">আপনি বেছে নিয়েছেন</p>
+            <p className="truncate text-lg font-semibold text-ink">
+              {name || selectedMember.name}
+            </p>
+            <p className="tabular text-sm text-muted">{selectedMember.memberCode}</p>
+            <p className="mt-1.5 text-xs text-muted">
+              ছবি বা নাম আপনার না হলে উপরের তালিকা থেকে আবার বেছে নিন।
+            </p>
+          </div>
+        </section>
+      )}
 
       {lookupState === 'loading' && <p className="text-sm text-muted">যাচাই করা হচ্ছে…</p>}
       {lookupState === 'missing' && (

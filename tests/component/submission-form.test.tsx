@@ -6,7 +6,7 @@ import { addMonths, currentDueMonth } from '@/lib/due-cycle'
 import { dueMonthLabel } from '@/lib/bn'
 
 const MEMBERS = [
-  { memberCode: 'NHSS-25001', name: 'আব্দুল ইসলাম', photoUrl: null },
+  { memberCode: 'NHSS-25001', name: 'আব্দুল ইসলাম', photoUrl: 'https://img.invalid/a.jpg' },
   { memberCode: 'NHSS-25002', name: 'মোহাম্মদ হোসেন', photoUrl: null },
 ]
 
@@ -124,6 +124,58 @@ describe('public submission form — ID selector', () => {
 
     const name = screen.getByLabelText(/^নাম/) as HTMLInputElement
     await waitFor(() => expect(name.value).toBe('মোহাম্মদ হোসেন'))
+  })
+
+  it('shows nobody until an ID is picked', () => {
+    render(<SubmissionForm members={MEMBERS} />)
+    expect(screen.queryByText('আপনি বেছে নিয়েছেন')).not.toBeInTheDocument()
+  })
+
+  it('shows a large photo of whoever was picked', async () => {
+    // The codes differ by one digit; picking the line above or below your own
+    // would otherwise file a payment against someone else's name.
+    vi.stubGlobal('fetch', mockLookup())
+    const user = userEvent.setup()
+
+    const { container } = render(<SubmissionForm members={MEMBERS} />)
+    await pickMember(user, /আব্দুল ইসলাম/)
+
+    const panel = screen.getByRole('region', { name: 'নির্বাচিত সদস্য' })
+    expect(within(panel).getByText('NHSS-25001')).toBeInTheDocument()
+    expect(within(panel).getByText('আব্দুল ইসলাম')).toBeInTheDocument()
+
+    // Large enough to be checked at a glance, not the 28px one in the picker.
+    const photo = panel.querySelector('img') as HTMLImageElement
+    expect(photo.getAttribute('src')).toBe('https://img.invalid/a.jpg')
+    expect(photo.getAttribute('width')).toBe('88')
+    expect(container).toBeTruthy()
+  })
+
+  it('falls back to a coloured initial for a member with no photo', async () => {
+    vi.stubGlobal('fetch', mockLookup())
+    const user = userEvent.setup()
+
+    render(<SubmissionForm members={MEMBERS} />)
+    await pickMember(user, /মোহাম্মদ হোসেন/)
+
+    const panel = screen.getByRole('region', { name: 'নির্বাচিত সদস্য' })
+    expect(within(panel).getByText('NHSS-25002')).toBeInTheDocument()
+    expect(panel.querySelector('img')).toBeNull()
+  })
+
+  it('swaps the photo when a different ID is picked', async () => {
+    vi.stubGlobal('fetch', mockLookup())
+    const user = userEvent.setup()
+
+    render(<SubmissionForm members={MEMBERS} />)
+    await pickMember(user, /আব্দুল ইসলাম/)
+
+    const panelOf = () => screen.getByRole('region', { name: 'নির্বাচিত সদস্য' })
+    await waitFor(() => expect(within(panelOf()).getByText('NHSS-25001')).toBeInTheDocument())
+
+    await pickMember(user, /মোহাম্মদ হোসেন/)
+    await waitFor(() => expect(within(panelOf()).getByText('NHSS-25002')).toBeInTheDocument())
+    expect(within(panelOf()).queryByText('NHSS-25001')).not.toBeInTheDocument()
   })
 
   it('does not let the member type over the name', async () => {
