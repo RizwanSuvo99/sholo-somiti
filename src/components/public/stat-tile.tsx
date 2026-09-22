@@ -106,7 +106,7 @@ export function StatTile({
           >
             {value}
           </p>
-          {hint && <p className={cn('mt-1.5 text-xs', palette.label)}>{hint}</p>}
+          {hint && <p className={cn('mt-1.5 text-sm', palette.label)}>{hint}</p>}
         </div>
 
         {icon && (
@@ -121,5 +121,18 @@ export function StatTile({
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * A hint that carries a figure of its own — a paid fine under an outstanding
+ * one, say. The wording stays quiet while the amount is set at the body size,
+ * because a number small enough to squint at is a number nobody reads.
+ */
+export function StatHint({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <>
+      {label} <span className="tabular text-base font-semibold">{value}</span>
+    </>
   )
 }

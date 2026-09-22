@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getDashboard } from '@/lib/queries/dashboard'
 import { StatCard } from '@/components/admin/stat-card'
+import { StatHint } from '@/components/public/stat-tile'
 import { Alert } from '@/components/ui/alert'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { formatBDT, toBnDigits } from '@/lib/money'
@@ -73,9 +74,9 @@ export default async function DashboardPage() {
           value={formatBDT(data.totalFinesCollectedPaisa)}
           icon={<IconAlert className="size-5" />}
           hint={
-            data.finesOutstandingPaisa > 0
-              ? `বকেয়া জরিমানা ${formatBDT(data.finesOutstandingPaisa)}`
-              : undefined
+            data.finesOutstandingPaisa > 0 ? (
+              <StatHint label="বকেয়া জরিমানা" value={formatBDT(data.finesOutstandingPaisa)} />
+            ) : undefined
           }
         />
         <StatCard

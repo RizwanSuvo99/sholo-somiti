@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { getPublicMemberProfile } from '@/lib/queries/public'
 import { normalizeMemberCode } from '@/lib/member-code'
 import { Card, CardHeader } from '@/components/ui/card'
-import { StatTile } from '@/components/public/stat-tile'
+import { StatHint, StatTile } from '@/components/public/stat-tile'
 import { MemberAvatar } from '@/components/shared/member-avatar'
 import { IconAlert, IconCheck, IconWallet } from '@/components/ui/icon'
 import { StatusBadge } from '@/components/shared/status-badge'
@@ -83,9 +83,12 @@ export default async function PublicMemberProfilePage({
           value={formatBDT(profile.outstandingFinePaisa)}
           icon={<IconAlert className="size-5" />}
           hint={
-            profile.totalFinePaidPaisa > 0
-              ? `পরিশোধিত জরিমানা ${formatBDT(profile.totalFinePaidPaisa)}`
-              : undefined
+            profile.totalFinePaidPaisa > 0 ? (
+              <StatHint
+                label="পরিশোধিত জরিমানা"
+                value={formatBDT(profile.totalFinePaidPaisa)}
+              />
+            ) : undefined
           }
         />
       </section>
