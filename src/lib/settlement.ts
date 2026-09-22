@@ -1,5 +1,6 @@
 import { compareDueMonth, type CivilDate, type DueMonth } from './due-cycle'
 import { FINE_PAISA, isLate } from './fines'
+import type { IncomeCategory } from '@/generated/prisma/enums'
 
 /**
  * Working out what a single payment settles.
@@ -139,3 +140,16 @@ export function fineIsWaived(
 ): boolean {
   return !isLate(sendingDate, dm) && alreadyChargedPaisa - alreadyPaidPaisa > 0
 }
+
+/**
+ * The income categories that add up to a member's মোট জমা.
+ *
+ * A fine is a penalty the society levied, not savings the member built up, so
+ * it is excluded here and reported on its own in the জরিমানা tile. Surplus
+ * over-payments are booked as OTHER_INCOME against the member and *are* their
+ * own money, so those stay in.
+ *
+ * Shared so the public directory, the public profile and the admin profile
+ * cannot drift apart on what "deposited" means.
+ */
+export const MEMBER_DEPOSIT_CATEGORIES: IncomeCategory[] = ['MONTHLY_DUE', 'OTHER_INCOME']

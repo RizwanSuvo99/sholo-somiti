@@ -1,6 +1,7 @@
 import 'server-only'
 import { prisma } from '@/lib/prisma'
 import { currentDueMonth, dbDateToCivil, deadlineInstant, type CivilDate, type DueMonth } from '@/lib/due-cycle'
+import { MEMBER_DEPOSIT_CATEGORIES } from '@/lib/settlement'
 
 /**
  * Read models for the public, no-login pages.
@@ -134,7 +135,12 @@ export async function getPublicMembers(now = new Date()): Promise<PublicMember[]
     }),
     prisma.transaction.groupBy({
       by: ['memberId'],
-      where: { type: 'INCOME', voidedAt: null, memberId: { not: null } },
+      where: {
+        type: 'INCOME',
+        incomeCategory: { in: MEMBER_DEPOSIT_CATEGORIES },
+        voidedAt: null,
+        memberId: { not: null },
+      },
       _sum: { amountPaisa: true },
     }),
     prisma.duePayment.findMany({
@@ -206,7 +212,12 @@ export async function getPublicMemberProfile(
       orderBy: [{ year: 'desc' }, { month: 'desc' }],
     }),
     prisma.transaction.aggregate({
-      where: { memberId: member.id, type: 'INCOME', voidedAt: null },
+      where: {
+        memberId: member.id,
+        type: 'INCOME',
+        incomeCategory: { in: MEMBER_DEPOSIT_CATEGORIES },
+        voidedAt: null,
+      },
       _sum: { amountPaisa: true },
     }),
   ])

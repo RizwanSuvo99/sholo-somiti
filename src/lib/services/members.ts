@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { formatMemberCode } from '@/lib/member-code'
 import { civilToDbDate, dbDateToCivil, type CivilDate } from '@/lib/due-cycle'
 import { isUniqueViolation } from '@/lib/api/errors'
+import { MEMBER_DEPOSIT_CATEGORIES } from '@/lib/settlement'
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
@@ -102,7 +103,12 @@ export async function getMemberHistory(memberId: string) {
       include: { sourceSubmission: { select: { id: true, transactionRef: true } } },
     }),
     prisma.transaction.aggregate({
-      where: { memberId, type: 'INCOME', voidedAt: null },
+      where: {
+        memberId,
+        type: 'INCOME',
+        incomeCategory: { in: MEMBER_DEPOSIT_CATEGORIES },
+        voidedAt: null,
+      },
       _sum: { amountPaisa: true },
     }),
   ])

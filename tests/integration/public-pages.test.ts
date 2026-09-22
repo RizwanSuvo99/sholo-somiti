@@ -3,6 +3,7 @@ import { prisma, resetDatabase } from '../helpers/db'
 import { makeAdmin, makeDueSetting, makeMember, makeSubmission, resetFactorySequence } from '../helpers/factories'
 import { approveSubmission } from '@/lib/services/submissions'
 import { createTransaction } from '@/lib/services/transactions'
+import { getMemberHistory } from '@/lib/services/members'
 import {
   getExpenseBreakdown,
   getMonthlyTotals,
@@ -151,6 +152,35 @@ describe('public transparency pages', () => {
     const profile = await getPublicMemberProfile(member.memberCode)
     expect(profile?.outstandingFinePaisa).toBe(FINE_PAISA)
     expect(profile?.totalFinePaidPaisa).toBe(0)
+  })
+
+  it('keeps a paid fine out of the member deposit total', async () => {
+    const admin = await makeAdmin()
+    const member = await makeMember()
+    const submission = await makeSubmission(member.id, member.memberCode, APRIL, {
+      sendingDate: '2026-05-03',
+      amountPaisa: DUE_PAISA + FINE_PAISA, // settles the due and the fine together
+    })
+    await approveSubmission(submission.id, admin.id)
+
+    // A fine is a penalty the society levied, not savings the member built up.
+    // It belongs in the জরিমানা tile alone; counting it in মোট জমা would make a
+    // fined member look like they had deposited more than everyone else.
+    const profile = await getPublicMemberProfile(member.memberCode)
+    expect(profile?.totalContributedPaisa).toBe(DUE_PAISA)
+    expect(profile?.totalFinePaidPaisa).toBe(FINE_PAISA)
+    expect(profile?.outstandingFinePaisa).toBe(0)
+
+    const [listed] = await getPublicMembers()
+    expect(listed.totalContributedPaisa).toBe(DUE_PAISA)
+
+    const history = await getMemberHistory(member.id)
+    expect(history?.totalContributedPaisa).toBe(DUE_PAISA)
+
+    // The society's own books are unaffected — the fine is still fund income.
+    const summary = await getPublicSummary()
+    expect(summary.totalFinePaisa).toBe(FINE_PAISA)
+    expect(summary.totalCollectedPaisa).toBe(DUE_PAISA + FINE_PAISA)
   })
 
   it('breaks expenses down by head and totals by month', async () => {
