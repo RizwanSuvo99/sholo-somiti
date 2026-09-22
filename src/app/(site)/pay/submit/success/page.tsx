@@ -46,7 +46,7 @@ export default async function SubmitSuccessPage({
             title={
               <span className="flex flex-wrap items-center gap-2">
                 <span>আপনার জমা দেওয়া তথ্য</span>
-                <StatusBadge status={receipt.status} />
+                <StatusBadge status={receipt.status} kind="submission" />
               </span>
             }
           />
@@ -84,7 +84,7 @@ export default async function SubmitSuccessPage({
             <Detail label="পেমেন্ট মাধ্যম" value={PAYMENT_MEDIUM_BN[receipt.paymentMedium]} />
             {receipt.paymentMedium === 'MOBILE_BANKING' ? (
               <Detail
-                label="মোবাইল ব্যাংকিং"
+                label="প্রেরকের নম্বর"
                 value={
                   <>
                     {PROVIDER_BN[receipt.mobileBankingProvider ?? ''] ?? ''}{' '}

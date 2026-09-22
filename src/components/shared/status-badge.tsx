@@ -12,8 +12,24 @@ const TONE: Record<string, { chip: string; dot: string }> = {
 
 const FALLBACK = { chip: 'bg-slate-50 text-slate-700 ring-slate-200 dark:bg-slate-500/12 dark:text-slate-300 dark:ring-slate-400/25', dot: 'bg-slate-400' }
 
-export function StatusBadge({ status, className }: { status: string; className?: string }) {
-  const label = DUE_STATUS_BN[status] ?? SUBMISSION_STATUS_BN[status] ?? status
+export function StatusBadge({
+  status,
+  kind = 'due',
+  className,
+}: {
+  status: string
+  /**
+   * PENDING means two different things. On a due payment it is "বাকি" — still
+   * owed. On a submission it is "অপেক্ষমাণ" — waiting for a reviewer, which is
+   * not the same as unpaid and must not read as though it were.
+   */
+  kind?: 'due' | 'submission'
+  className?: string
+}) {
+  const label =
+    kind === 'submission'
+      ? (SUBMISSION_STATUS_BN[status] ?? DUE_STATUS_BN[status] ?? status)
+      : (DUE_STATUS_BN[status] ?? SUBMISSION_STATUS_BN[status] ?? status)
   const tone = TONE[status] ?? FALLBACK
 
   return (

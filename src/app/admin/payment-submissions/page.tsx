@@ -90,7 +90,7 @@ export default async function SubmissionsPage({
                       <span className="tabular">{submission.memberCodeSnapshot}</span>
                       <span className="text-muted">·</span>
                       <span>{submission.name}</span>
-                      <StatusBadge status={submission.status} />
+                      <StatusBadge status={submission.status} kind="submission" />
                     </span>
                   }
                 />
