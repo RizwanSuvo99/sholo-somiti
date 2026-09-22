@@ -1,9 +1,12 @@
+import Link from 'next/link'
 import { getPublicMembers } from '@/lib/queries/public'
 import { Card } from '@/components/ui/card'
 import { MemberCard } from '@/components/public/member-card'
 import { formatBDT, toBnDigits } from '@/lib/money'
 import { paginate } from '@/lib/paginate'
 import { Pagination } from '@/components/shared/pagination'
+import { Button } from '@/components/ui/button'
+import { matchesSearch } from '@/lib/search'
 
 // Dynamic: the directory is paged through the query string.
 export const dynamic = 'force-dynamic'
@@ -16,19 +19,26 @@ export const metadata = {
 export default async function PublicMembersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>
+  searchParams: Promise<{ q?: string; page?: string }>
 }) {
   const query = await searchParams
   const allMembers = await getPublicMembers()
 
-  // Society-wide figures stay society-wide; only the cards below are paged.
+  // Society-wide figures stay society-wide: they describe the samity, not the
+  // search, so they are taken before any filtering.
   const totalContributed = allMembers.reduce((sum, m) => sum + m.totalContributedPaisa, 0)
   const paidThisMonth = allMembers.filter(
     (m) => m.currentMonthStatus === 'PAID_ON_TIME' || m.currentMonthStatus === 'PAID_LATE',
   ).length
 
-  const info = paginate(allMembers.length, query.page)
-  const members = allMembers.slice(info.skip, info.skip + info.take)
+  // Filtering in memory rather than in SQL: the directory is a few dozen people
+  // and the totals above need the whole list anyway, so a second query would
+  // buy nothing.
+  const q = query.q?.trim() ?? ''
+  const found = q ? allMembers.filter((m) => matchesSearch([m.name, m.memberCode], q)) : allMembers
+
+  const info = paginate(found.length, query.page)
+  const members = found.slice(info.skip, info.skip + info.take)
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-10">
@@ -45,11 +55,43 @@ export default async function PublicMembersPage({
             চলতি মাসে জমা {toBnDigits(paidThisMonth)} জন
           </Pill>
         </div>
+        {/* A plain GET form: every result is a bookmarkable URL, paging keeps
+            the query, and searching works with JavaScript switched off. Leaving
+            `page` out of the form is what resets to the first page. */}
+        <form role="search" className="mt-4 flex flex-wrap gap-2">
+          <input
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder="নাম বা আইডি নম্বর দিয়ে খুঁজুন"
+            aria-label="নাম বা আইডি নম্বর দিয়ে সদস্য খুঁজুন"
+            className="min-w-56 flex-1 rounded-lg border border-line bg-panel px-3 py-2 text-sm"
+          />
+          <Button size="sm" variant="secondary" type="submit">
+            খুঁজুন
+          </Button>
+          {q && (
+            <Link
+              href="/members"
+              className="self-center text-sm text-brand underline whitespace-nowrap"
+            >
+              সব সদস্য
+            </Link>
+          )}
+        </form>
+
+        {q && (
+          <p className="mt-2 text-sm text-muted">
+            “{q}” — {toBnDigits(found.length)} জন পাওয়া গেছে
+          </p>
+        )}
       </header>
 
-      {allMembers.length === 0 ? (
+      {found.length === 0 ? (
         <Card>
-          <p className="p-10 text-center text-muted">এখনো কোনো সদস্য যোগ করা হয়নি</p>
+          <p className="p-10 text-center text-muted">
+            {q ? 'এই নাম বা আইডি নম্বরে কোনো সদস্য পাওয়া যায়নি' : 'এখনো কোনো সদস্য যোগ করা হয়নি'}
+          </p>
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -59,7 +101,7 @@ export default async function PublicMembersPage({
         </div>
       )}
 
-      {allMembers.length > 0 && (
+      {found.length > 0 && (
         <Card className="mt-4">
           <Pagination info={info} basePath="/members" params={query} label="জন" />
         </Card>
