@@ -11,6 +11,7 @@ import {
   getPublicMemberProfile,
   getPublicMembers,
   getPublicSummary,
+  getSubmissionReceipt,
 } from '@/lib/queries/public'
 import { parseCivilDate, type DueMonth } from '@/lib/due-cycle'
 import { FINE_PAISA } from '@/lib/fines'
@@ -76,13 +77,14 @@ describe('public transparency pages', () => {
   })
 
   it('never exposes a member phone number, email or father name', async () => {
-    const { member } = await seedScenario()
+    const { member, submission } = await seedScenario()
 
     const serialised = JSON.stringify([
       await getPublicMembers(),
       await getPublicMemberProfile(member.memberCode),
       (await getPublicLedger()).entries,
       await getPublicSummary(),
+      await getSubmissionReceipt(submission.id),
     ])
 
     expect(serialised).not.toContain(MOBILE)
@@ -181,6 +183,33 @@ describe('public transparency pages', () => {
     const summary = await getPublicSummary()
     expect(summary.totalFinePaisa).toBe(FINE_PAISA)
     expect(summary.totalCollectedPaisa).toBe(DUE_PAISA + FINE_PAISA)
+  })
+
+  it('returns the submitted details as a receipt, keyed by the submission id', async () => {
+    const member = await makeMember()
+    const submission = await makeSubmission(member.id, member.memberCode, APRIL, {
+      sendingDate: '2026-04-10',
+    })
+
+    const receipt = await getSubmissionReceipt(submission.id)
+
+    expect(receipt).toMatchObject({
+      memberCode: member.memberCode,
+      dueYear: APRIL.dueYear,
+      dueMonth: APRIL.dueMonth,
+      amountPaisa: 50_000,
+      transactionRef: submission.transactionRef,
+      paymentMedium: 'MOBILE_BANKING',
+      mobileBankingProvider: 'BKASH',
+      status: 'PENDING',
+    })
+    expect(receipt?.sendingDate).toEqual({ y: 2026, m: 4, d: 10 })
+  })
+
+  it('answers with null for an unknown or malformed receipt id', async () => {
+    // A mistyped link must be a friendly page, not a Postgres uuid error.
+    expect(await getSubmissionReceipt('not-a-uuid')).toBeNull()
+    expect(await getSubmissionReceipt('00000000-0000-4000-8000-000000000000')).toBeNull()
   })
 
   it('breaks expenses down by head and totals by month', async () => {

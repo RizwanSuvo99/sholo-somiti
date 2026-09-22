@@ -212,7 +212,11 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
         return
       }
 
-      router.push('/pay/submit/success')
+      // The id comes back from the create so the confirmation can show the
+      // member what actually landed in the database, not an echo of the form.
+      const created = await response.json().catch(() => null)
+      const ref: string | undefined = created?.id
+      router.push(ref ? `/pay/submit/success?ref=${encodeURIComponent(ref)}` : '/pay/submit/success')
     } catch {
       setError('সংযোগে সমস্যা হয়েছে')
     } finally {

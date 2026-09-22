@@ -384,3 +384,84 @@ export async function getMonthlyTotals(
 }
 
 export type DueMonthSummary = { dueMonth: DueMonth; collectedPaisa: number; paidCount: number; totalCount: number }
+
+export type SubmissionReceipt = {
+  memberCode: string
+  name: string
+  photoUrl: string | null
+  dueMonth: number
+  dueYear: number
+  sendingDate: CivilDate
+  amountPaisa: number
+  transactionRef: string
+  paymentMedium: string
+  bankName: string | null
+  mobileBankingProvider: string | null
+  mobileBankingNumber: string | null
+  screenshotUrl: string
+  status: string
+  submittedAt: Date
+  rejectionReason: string | null
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * The receipt shown straight after the public form is submitted, so a member
+ * can see their own entry landed and check they picked the right ID.
+ *
+ * Addressed by the submission's own id — a v4 uuid, so it cannot be guessed or
+ * walked, which is what lets the page work with no login. It returns only what
+ * the submitter just typed in themselves, plus the photo and name already
+ * public on the member directory. Nothing about the review is exposed beyond
+ * the status and, if there is one, the reason it was turned down: the member is
+ * entitled to both, and neither identifies the reviewer.
+ */
+export async function getSubmissionReceipt(id: string): Promise<SubmissionReceipt | null> {
+  // Guarded before the query: Postgres rejects a malformed uuid outright, and a
+  // mistyped link should be a friendly page, not a 500.
+  if (!UUID.test(id)) return null
+
+  const row = await prisma.paymentSubmission.findUnique({
+    where: { id },
+    select: {
+      name: true,
+      memberCodeSnapshot: true,
+      dueMonth: true,
+      dueYear: true,
+      sendingDate: true,
+      amountPaisa: true,
+      transactionRef: true,
+      paymentMedium: true,
+      bankName: true,
+      mobileBankingProvider: true,
+      mobileBankingNumber: true,
+      screenshotUrl: true,
+      status: true,
+      createdAt: true,
+      rejectionReason: true,
+      member: { select: { photoUrl: true } },
+    },
+  })
+
+  if (!row) return null
+
+  return {
+    memberCode: row.memberCodeSnapshot,
+    name: row.name,
+    photoUrl: row.member?.photoUrl ?? null,
+    dueMonth: row.dueMonth,
+    dueYear: row.dueYear,
+    sendingDate: dbDateToCivil(row.sendingDate),
+    amountPaisa: row.amountPaisa,
+    transactionRef: row.transactionRef,
+    paymentMedium: row.paymentMedium,
+    bankName: row.bankName,
+    mobileBankingProvider: row.mobileBankingProvider,
+    mobileBankingNumber: row.mobileBankingNumber,
+    screenshotUrl: row.screenshotUrl,
+    status: row.status,
+    submittedAt: row.createdAt,
+    rejectionReason: row.rejectionReason,
+  }
+}
