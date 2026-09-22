@@ -106,7 +106,6 @@ export function StatTile({
           >
             {value}
           </p>
-          {hint && <p className={cn('mt-1.5 text-sm', palette.label)}>{hint}</p>}
         </div>
 
         {icon && (
@@ -120,6 +119,11 @@ export function StatTile({
           </span>
         )}
       </div>
+
+      {/* Full tile width, not the column beside the icon: the hint carries a
+          figure, and squeezed into ~140px it wrapped onto a second line and
+          stretched every tile in the row. */}
+      {hint && <p className={cn('relative mt-1.5 text-sm', palette.label)}>{hint}</p>}
     </div>
   )
 }
