@@ -1,12 +1,11 @@
-import Link from 'next/link'
 import { getPublicMembers } from '@/lib/queries/public'
 import { Card } from '@/components/ui/card'
 import { MemberCard } from '@/components/public/member-card'
 import { formatBDT, toBnDigits } from '@/lib/money'
 import { paginate } from '@/lib/paginate'
 import { Pagination } from '@/components/shared/pagination'
-import { Button } from '@/components/ui/button'
 import { matchesSearch } from '@/lib/search'
+import { MemberSearch } from './member-search'
 
 // Dynamic: the directory is paged through the query string.
 export const dynamic = 'force-dynamic'
@@ -55,30 +54,7 @@ export default async function PublicMembersPage({
             চলতি মাসে জমা {toBnDigits(paidThisMonth)} জন
           </Pill>
         </div>
-        {/* A plain GET form: every result is a bookmarkable URL, paging keeps
-            the query, and searching works with JavaScript switched off. Leaving
-            `page` out of the form is what resets to the first page. */}
-        <form role="search" className="mt-4 flex flex-wrap gap-2">
-          <input
-            type="search"
-            name="q"
-            defaultValue={q}
-            placeholder="নাম বা আইডি নম্বর দিয়ে খুঁজুন"
-            aria-label="নাম বা আইডি নম্বর দিয়ে সদস্য খুঁজুন"
-            className="min-w-56 flex-1 rounded-lg border border-line bg-panel px-3 py-2 text-sm"
-          />
-          <Button size="sm" variant="secondary" type="submit">
-            খুঁজুন
-          </Button>
-          {q && (
-            <Link
-              href="/members"
-              className="self-center text-sm text-brand underline whitespace-nowrap"
-            >
-              সব সদস্য
-            </Link>
-          )}
-        </form>
+        <MemberSearch query={q} />
 
         {q && (
           <p className="mt-2 text-sm text-muted">

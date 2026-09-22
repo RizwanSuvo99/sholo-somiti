@@ -1,11 +1,15 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
+import { routerMock } from './router'
 
-// The form calls router.push on success; jsdom has no Next router.
+// jsdom has no Next router; components navigate through this stub instead.
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), back: vi.fn() }),
+  useRouter: () => routerMock,
   usePathname: () => '/pay/submit',
 }))
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  for (const fn of Object.values(routerMock)) fn.mockClear()
+})
