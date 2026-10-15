@@ -6,15 +6,7 @@ import { Alert } from '@/components/ui/alert'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { formatBDT, toBnDigits } from '@/lib/money'
 import { dueMonthLabel } from '@/lib/bn'
-import {
-  IconAlert,
-  IconCalendar,
-  IconCoins,
-  IconGift,
-  IconReceipt,
-  IconUsers,
-  IconWallet,
-} from '@/components/ui/icon'
+import { IconAlert, IconCalendar, IconClock, IconCoins, IconGift, IconReceipt, IconUsers, IconWallet } from '@/components/ui/icon'
 import { RunRolloverButton } from './run-rollover-button'
 
 export const dynamic = 'force-dynamic'
@@ -78,6 +70,12 @@ export default async function DashboardPage() {
               <StatHint label="বকেয়া জরিমানা" value={formatBDT(data.finesOutstandingPaisa)} />
             ) : undefined
           }
+        />
+        <StatCard
+          tone="rose"
+          label="আদায়কৃত বিলম্ব ফি"
+          value={formatBDT(data.totalDelayFeesCollectedPaisa)}
+          icon={<IconClock className="size-5" />}
         />
         <StatCard
           tone="violet"

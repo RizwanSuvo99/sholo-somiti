@@ -93,10 +93,16 @@ export default async function AccountsPage({
               bar="bg-gradient-to-r from-sky-400 to-cyan-500"
             />
             <Proportion
-              label="বিলম্ব জরিমানা"
+              label="জরিমানা"
               amountPaisa={summary.totalFinePaisa}
               totalPaisa={summary.totalCollectedPaisa}
               bar="bg-gradient-to-r from-amber-400 to-orange-500"
+            />
+            <Proportion
+              label="বিলম্ব ফি"
+              amountPaisa={summary.totalDelayFeePaisa}
+              totalPaisa={summary.totalCollectedPaisa}
+              bar="bg-gradient-to-r from-rose-400 to-pink-500"
             />
             <Proportion
               label="অন্যান্য আয়"

@@ -49,5 +49,12 @@ export const PROVIDER_BN: Record<string, string> = {
 export const INCOME_CATEGORY_BN: Record<string, string> = {
   MONTHLY_DUE: 'মাসিক চাঁদা',
   FINE: 'জরিমানা',
+  DELAY_FEE: 'বিলম্ব ফি',
   OTHER_INCOME: 'অন্যান্য আয়',
+}
+
+export const IMPORT_KIND_BN: Record<string, string> = {
+  FINE_IMPORT: 'জরিমানা',
+  UNIFORM_DUE_IMPORT: 'সবার চাঁদা',
+  MEMBER_DUE_BACKFILL: 'একজনের পুরোনো চাঁদা',
 }

@@ -95,7 +95,7 @@ export async function updateMember(id: string, input: UpdateMemberInput) {
 
 /** A member's full month-by-month history, plus the running total contributed. */
 export async function getMemberHistory(memberId: string) {
-  const [member, duePayments, contributions] = await Promise.all([
+  const [member, duePayments, contributions, delayFees] = await Promise.all([
     prisma.member.findUnique({ where: { id: memberId } }),
     prisma.duePayment.findMany({
       where: { memberId },
@@ -111,6 +111,12 @@ export async function getMemberHistory(memberId: string) {
       },
       _sum: { amountPaisa: true },
     }),
+    // Reported beside the contribution total, never inside it: a delay fee is
+    // the society's income, not the member's savings.
+    prisma.transaction.aggregate({
+      where: { memberId, type: 'INCOME', incomeCategory: 'DELAY_FEE', voidedAt: null },
+      _sum: { amountPaisa: true },
+    }),
   ])
 
   if (!member) return null
@@ -119,5 +125,6 @@ export async function getMemberHistory(memberId: string) {
     member: { ...member, joinedOnCivil: dbDateToCivil(member.joinedOn) },
     duePayments,
     totalContributedPaisa: contributions._sum.amountPaisa ?? 0,
+    delayFeePaidPaisa: delayFees._sum.amountPaisa ?? 0,
   }
 }

@@ -59,6 +59,14 @@ export const IconGift = (props: IconProps) => (
   </Svg>
 )
 
+/** A clock: the mark for a delay fee, as distinct from the fine's warning triangle. */
+export const IconClock = (props: IconProps) => (
+  <Svg {...props}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.5V12l3 1.8" />
+  </Svg>
+)
+
 export const IconReceipt = (props: IconProps) => (
   <Svg {...props}>
     <path d="M5 3h14v18l-2.5-1.6L14 21l-2-1.6L10 21l-2.5-1.6L5 21V3Z" />

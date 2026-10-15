@@ -23,7 +23,7 @@ export default async function MemberProfilePage({
   const history = await getMemberHistory(id)
   if (!history) notFound()
 
-  const { member, duePayments: allDuePayments, totalContributedPaisa } = history
+  const { member, duePayments: allDuePayments, totalContributedPaisa, delayFeePaidPaisa } = history
 
   // The history is one row per month, so it stays small enough to page in memory.
   const info = paginate(allDuePayments.length, query.page)
@@ -68,6 +68,16 @@ export default async function MemberProfilePage({
             <p className="text-sm text-muted">মোট জমা</p>
             <p className="mt-1 text-2xl font-semibold text-positive">
               <Money paisa={totalContributedPaisa} />
+            </p>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardBody>
+            <p className="text-sm text-muted">বিলম্ব ফি</p>
+            {/* Beside মোট জমা, never inside it — a fee is the society's income,
+                not money this member has saved. */}
+            <p className="mt-1 text-2xl font-semibold">
+              <Money paisa={delayFeePaidPaisa} />
             </p>
           </CardBody>
         </Card>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { Field, Input } from '@/components/ui/field'
@@ -10,9 +10,9 @@ import { MemberSelect } from '@/components/shared/member-select'
 import { MonthPicker } from '@/components/shared/month-picker'
 import { useToast } from '@/components/ui/toast'
 import { COLLECTION_START } from '@/lib/society'
-import { dueMonthLabel } from '@/lib/bn'
-import { toBnDigits } from '@/lib/money'
-import type { DueMonth } from '@/lib/due-cycle'
+import { civilDateLabel, dueMonthLabel } from '@/lib/bn'
+import { formatBDT, toBnDigits } from '@/lib/money'
+import type { CivilDate, DueMonth } from '@/lib/due-cycle'
 
 export type ImportMemberOption = {
   memberCode: string
@@ -34,6 +34,7 @@ export function ImportForms({
 }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
+      <MemberBackfillForm members={members} currentDue={currentDue} />
       <FineImportForm members={members} currentDue={currentDue} />
       <UniformImportForm importedMonths={importedMonths} currentDue={currentDue} />
     </div>
@@ -277,5 +278,286 @@ function UniformImportForm({
         </form>
       </CardBody>
     </Card>
+  )
+}
+
+type BackfillMonth = {
+  dueYear: number
+  dueMonth: number
+  label: string
+  amountPaisa: number
+  outcome: 'WILL_ADD' | 'ALREADY_PAID' | 'UNPRICED'
+}
+
+type BackfillPlan = {
+  member: { memberCode: string; name: string; photoUrl: string | null; joinedOn: CivilDate }
+  months: BackfillMonth[]
+  totalPaisa: number
+  addCount: number
+  alreadyPaidCount: number
+  unpricedCount: number
+  joinedOnWouldBecome: CivilDate | null
+}
+
+/**
+ * Mode 3: settle every past month for one member who has just joined.
+ *
+ * The preview is the point of this form. It is the only one of the three that
+ * writes a dozen rows at once, at amounts the admin never types, so it shows
+ * exactly which months it will add and at what price before anything is
+ * written. Money going into a register is not somewhere to be surprised.
+ */
+function MemberBackfillForm({
+  members,
+  currentDue,
+}: {
+  members: ImportMemberOption[]
+  currentDue: DueMonth
+}) {
+  const { submit, pending } = useImport('/api/admin/import/member-dues')
+
+  const [memberCode, setMemberCode] = useState('')
+  const [from, setFrom] = useState<DueMonth | null>(COLLECTION_START)
+  const [to, setTo] = useState<DueMonth | null>(currentDue)
+  const [alignJoinedOn, setAlignJoinedOn] = useState(true)
+  const [note, setNote] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  /**
+   * The preview is stored against the inputs it answered, and read back only
+   * when those still match. Deriving it this way means the effect never clears
+   * state synchronously — so a stale plan cannot be shown for a moment after
+   * the member changes, and there is no second render to flush the old one.
+   */
+  const key =
+    memberCode && from && to
+      ? `${memberCode}|${from.dueYear}-${from.dueMonth}|${to.dueYear}-${to.dueMonth}`
+      : ''
+  const ready = key !== ''
+
+  const [answer, setAnswer] = useState<{
+    key: string
+    plan: BackfillPlan | null
+    error: string | null
+  } | null>(null)
+
+  const current = answer?.key === key ? answer : null
+  const plan = current?.plan ?? null
+  const planError = current?.error ?? null
+  const loadingPlan = ready && current === null
+
+  useEffect(() => {
+    if (!memberCode || !from || !to) return
+
+    const controller = new AbortController()
+    const query = new URLSearchParams({
+      memberCode,
+      fromYear: String(from.dueYear),
+      fromMonth: String(from.dueMonth),
+      toYear: String(to.dueYear),
+      toMonth: String(to.dueMonth),
+    })
+
+    fetch(`/api/admin/import/member-dues/preview?${query}`, { signal: controller.signal })
+      .then(async (response) => {
+        const result = await response.json().catch(() => null)
+        if (controller.signal.aborted) return
+        setAnswer({
+          key,
+          plan: response.ok ? result : null,
+          error: response.ok ? null : (result?.error?.messageBn ?? 'হিসাব দেখা যায়নি'),
+        })
+      })
+      .catch(() => {
+        // An aborted request is a superseded one, not a failure.
+        if (!controller.signal.aborted) {
+          setAnswer({ key, plan: null, error: 'হিসাব দেখা যায়নি' })
+        }
+      })
+
+    return () => controller.abort()
+  }, [key, memberCode, from, to])
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!memberCode) return setError('সদস্য বেছে নিন')
+    if (!from || !to) return setError('শুরু ও শেষের মাস বেছে নিন')
+    setError(null)
+
+    const done = await submit(
+      {
+        memberCode,
+        fromMonth: from.dueMonth,
+        fromYear: from.dueYear,
+        toMonth: to.dueMonth,
+        toYear: to.dueYear,
+        alignJoinedOn,
+        note,
+      },
+      (result) => `${toBnDigits(result.affected)} মাসের চাঁদা যোগ হয়েছে`,
+    )
+
+    if (done) {
+      setMemberCode('')
+      setNote('')
+      setAnswer(null)
+    }
+  }
+
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader title="নতুন সদস্যের পুরোনো মাসের চাঁদা" />
+      <CardBody>
+        <p className="mb-4 text-sm text-muted">
+          যে সদস্য পরে যোগ দিয়ে আগের সব মাসের চাঁদা একসাথে পরিশোধ করেছেন, তাঁর জন্য। প্রতিটি মাসের
+          পরিমাণ ওই মাসের জন্য নির্ধারিত পরিমাণ থেকেই নেওয়া হয় — টাইপ করতে হয় না।
+        </p>
+
+        <form onSubmit={onSubmit} className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-4">
+            {error && <Alert tone="danger">{error}</Alert>}
+
+            <MemberSelect
+              label="সদস্যের আইডি"
+              hint="তালিকা থেকে সদস্য বেছে নিন"
+              required
+              members={members}
+              value={memberCode}
+              onChange={setMemberCode}
+              placeholder="— সদস্য বাছুন —"
+            />
+
+            <MonthPicker
+              label="কোন মাস থেকে"
+              required
+              value={from}
+              onChange={setFrom}
+              min={COLLECTION_START}
+              max={currentDue}
+              hint={`${dueMonthLabel(COLLECTION_START)} থেকে হিসাব শুরু`}
+            />
+
+            <MonthPicker
+              label="কোন মাস পর্যন্ত"
+              required
+              value={to}
+              onChange={setTo}
+              min={COLLECTION_START}
+              max={currentDue}
+            />
+
+            <label className="flex items-start gap-2.5 text-sm">
+              <input
+                type="checkbox"
+                checked={alignJoinedOn}
+                onChange={(event) => setAlignJoinedOn(event.target.checked)}
+                className="mt-0.5 size-4 shrink-0 rounded border-line accent-brand"
+              />
+              <span>
+                সদস্য হওয়ার তারিখ প্রথম মাসের সাথে মিলিয়ে দিন
+                <span className="mt-0.5 block text-xs text-muted">
+                  না দিলে প্রোফাইলে যোগ দেওয়ার তারিখের আগের মাসের চাঁদা দেখাবে
+                </span>
+              </span>
+            </label>
+
+            <Field label="মন্তব্য">
+              <Input value={note} onChange={(event) => setNote(event.target.value)} />
+            </Field>
+
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={pending || !ready || !plan || plan.addCount === 0}
+            >
+              {pending ? 'যোগ হচ্ছে…' : 'পুরোনো চাঁদা যোগ করুন'}
+            </Button>
+          </div>
+
+          <BackfillPreview plan={plan} error={planError} loading={loadingPlan} ready={ready} />
+        </form>
+      </CardBody>
+    </Card>
+  )
+}
+
+function BackfillPreview({
+  plan,
+  error,
+  loading,
+  ready,
+}: {
+  plan: BackfillPlan | null
+  error: string | null
+  loading: boolean
+  ready: boolean
+}) {
+  return (
+    <div className="rounded-xl border border-line bg-surface p-4">
+      <p className="mb-3 text-sm font-medium">যোগ হবে</p>
+
+      {!ready ? (
+        <p className="text-sm text-muted">সদস্য ও মাস বেছে নিলে এখানে হিসাব দেখা যাবে।</p>
+      ) : error ? (
+        <Alert tone="danger">{error}</Alert>
+      ) : loading && !plan ? (
+        <p className="text-sm text-muted">হিসাব করা হচ্ছে…</p>
+      ) : !plan ? null : (
+        <>
+          <ul className="mb-3 max-h-64 space-y-1 overflow-y-auto text-sm">
+            {plan.months.map((month) => (
+              <li
+                key={`${month.dueYear}-${month.dueMonth}`}
+                className="flex items-center justify-between gap-3 border-b border-line/60 py-1 last:border-0"
+              >
+                <span className={month.outcome === 'WILL_ADD' ? '' : 'text-muted line-through'}>
+                  {month.label}
+                </span>
+                <span className="flex items-center gap-2 whitespace-nowrap">
+                  {month.outcome === 'ALREADY_PAID' && (
+                    <span className="text-xs text-muted">আগেই পরিশোধিত</span>
+                  )}
+                  {month.outcome === 'UNPRICED' && (
+                    <span className="text-xs text-danger">পরিমাণ নির্ধারিত নেই</span>
+                  )}
+                  <span className="tabular">
+                    {month.amountPaisa > 0 ? formatBDT(month.amountPaisa) : '—'}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          <div className="flex items-center justify-between border-t border-line pt-3 text-sm">
+            <span className="font-medium">
+              {toBnDigits(plan.addCount)} মাস যোগ হবে
+              {plan.alreadyPaidCount > 0 && (
+                <span className="text-muted"> · {toBnDigits(plan.alreadyPaidCount)} বাদ</span>
+              )}
+            </span>
+            <span className="tabular text-base font-semibold">{formatBDT(plan.totalPaisa)}</span>
+          </div>
+
+          {plan.unpricedCount > 0 && (
+            <Alert tone="danger" className="mt-3">
+              {toBnDigits(plan.unpricedCount)} মাসের চাঁদার পরিমাণ নির্ধারণ করা হয়নি — আগে ওই
+              মাসগুলোর পরিমাণ নির্ধারণ করুন।
+            </Alert>
+          )}
+
+          {plan.addCount === 0 && plan.unpricedCount === 0 && (
+            <p className="mt-3 text-sm text-muted">এই মাসগুলোর হিসাব আগেই যোগ করা আছে।</p>
+          )}
+
+          {plan.joinedOnWouldBecome && (
+            <p className="mt-3 text-xs text-muted">
+              সদস্য হওয়ার তারিখ {civilDateLabel(plan.member.joinedOn)} থেকে{' '}
+              {civilDateLabel(plan.joinedOnWouldBecome)} করা হবে।
+            </p>
+          )}
+        </>
+      )}
+    </div>
   )
 }

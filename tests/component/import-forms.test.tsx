@@ -30,8 +30,17 @@ function renderForms(importedMonths: DueMonth[] = []) {
   )
 }
 
-const openMemberList = (user: ReturnType<typeof userEvent.setup>) =>
-  user.click(screen.getByRole('combobox', { name: /সদস্যের আইডি/ }))
+/**
+ * The page now carries two member pickers — the fine form's and the backfill
+ * form's — so every lookup here is scoped to the form under test rather than
+ * to the whole page.
+ */
+const fineForm = () => screen.getByRole('button', { name: /জরিমানা যোগ করুন/ }).closest('form')!
+
+const fineMemberBox = () =>
+  within(fineForm()).getByRole('combobox', { name: /সদস্যের আইডি/ })
+
+const openMemberList = (user: ReturnType<typeof userEvent.setup>) => user.click(fineMemberBox())
 
 /** Opens the month calendar for a field and picks a month by its Bengali name. */
 async function pickMonth(
@@ -121,9 +130,7 @@ describe('historical import forms', () => {
 
     // Leaving the form filled invites submitting the same month twice.
     await waitFor(() => expect(screen.getByLabelText(/কোন মাসের জরিমানা/)).toHaveValue(''))
-    expect(screen.getByRole('combobox', { name: /সদস্যের আইডি/ }).textContent).toContain(
-      'সদস্য বাছুন',
-    )
+    expect(fineMemberBox().textContent).toContain('সদস্য বাছুন')
   })
 
   it('confirms before applying a due to everyone, then clears', async () => {
@@ -199,5 +206,138 @@ describe('historical import forms', () => {
 
     await user.click(screen.getByLabelText(/কোন মাসের চাঁদা/))
     expect(document.querySelector('.react-datepicker__header')?.textContent).toContain('২০২৬')
+  })
+})
+
+const PLAN = {
+  member: {
+    memberCode: 'NHSS-25002',
+    name: 'মোহাম্মদ হোসেন',
+    photoUrl: null,
+    joinedOn: { y: 2026, m: 3, d: 1 },
+  },
+  months: [
+    {
+      dueYear: 2025,
+      dueMonth: 11,
+      label: 'নভেম্বর ২০২৫',
+      amountPaisa: 200_000,
+      outcome: 'WILL_ADD',
+    },
+    {
+      dueYear: 2025,
+      dueMonth: 12,
+      label: 'ডিসেম্বর ২০২৫',
+      amountPaisa: 200_000,
+      outcome: 'ALREADY_PAID',
+    },
+  ],
+  totalPaisa: 200_000,
+  addCount: 1,
+  alreadyPaidCount: 1,
+  unpricedCount: 0,
+  joinedOnWouldBecome: { y: 2025, m: 10, d: 21 },
+}
+
+/** Answers the preview GET and the import POST from the same stub. */
+function mockBackfill(plan: unknown = PLAN) {
+  return vi.fn(async (...args: [url: string, init?: RequestInit]) =>
+    String(args[0]).includes('/preview')
+      ? ({ ok: true, json: async () => plan } as Response)
+      : ({ ok: true, json: async () => ({ batchId: 'b1', affected: 1 }) } as Response),
+  )
+}
+
+const backfillForm = () =>
+  screen.getByRole('button', { name: /পুরোনো চাঁদা যোগ করুন/ }).closest('form')!
+
+async function pickBackfillMember(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(within(backfillForm()).getByRole('combobox', { name: /সদস্যের আইডি/ }))
+  await user.click(screen.getByRole('option', { name: /মোহাম্মদ হোসেন/ }))
+}
+
+describe('backfilling one member’s past months', () => {
+  beforeEach(() => vi.restoreAllMocks())
+
+  it('shows every month and the total before anything is written', async () => {
+    vi.stubGlobal('fetch', mockBackfill())
+    const user = userEvent.setup()
+    renderForms()
+
+    await pickBackfillMember(user)
+
+    const preview = await screen.findByText('নভেম্বর ২০২৫')
+    expect(preview).toBeInTheDocument()
+    // A month already settled is listed but struck through, not silently dropped.
+    expect(screen.getByText('আগেই পরিশোধিত')).toBeInTheDocument()
+    // The total, read from the summary line rather than the month rows, which
+    // carry the same figure. 200,000 paisa is ৳2,000.
+    const summary = screen.getByText(/১ মাস যোগ হবে/).closest('div')!
+    expect(within(summary).getByText(/২,০০০/)).toBeInTheDocument()
+  })
+
+  it('warns that the joining date will move', async () => {
+    vi.stubGlobal('fetch', mockBackfill())
+    const user = userEvent.setup()
+    renderForms()
+
+    await pickBackfillMember(user)
+    expect(await screen.findByText(/২১ অক্টোবর ২০২৫ করা হবে/)).toBeInTheDocument()
+  })
+
+  it('posts the range and the joining-date choice', async () => {
+    const fetchMock = mockBackfill()
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    renderForms()
+
+    await pickBackfillMember(user)
+    await screen.findByText('নভেম্বর ২০২৫')
+    await user.click(screen.getByRole('button', { name: /পুরোনো চাঁদা যোগ করুন/ }))
+
+    await waitFor(() => {
+      const post = fetchMock.mock.calls.find((call) => !String(call[0]).includes('/preview'))
+      expect(post).toBeTruthy()
+      expect(JSON.parse(String((post![1] as RequestInit).body))).toMatchObject({
+        memberCode: 'NHSS-25002',
+        fromMonth: 11,
+        fromYear: 2025,
+        toMonth: CURRENT.dueMonth,
+        toYear: CURRENT.dueYear,
+        alignJoinedOn: true,
+      })
+    })
+  })
+
+  it('refuses to submit when there is nothing to add', async () => {
+    vi.stubGlobal(
+      'fetch',
+      mockBackfill({ ...PLAN, months: [PLAN.months[1]], addCount: 0, totalPaisa: 0 }),
+    )
+    const user = userEvent.setup()
+    renderForms()
+
+    await pickBackfillMember(user)
+    await screen.findByText(/এই মাসগুলোর হিসাব আগেই যোগ করা আছে/)
+    expect(screen.getByRole('button', { name: /পুরোনো চাঁদা যোগ করুন/ })).toBeDisabled()
+  })
+
+  it('blocks the import when a month has no amount set', async () => {
+    vi.stubGlobal(
+      'fetch',
+      mockBackfill({
+        ...PLAN,
+        months: [{ ...PLAN.months[0], amountPaisa: 0, outcome: 'UNPRICED' }],
+        addCount: 0,
+        unpricedCount: 1,
+        totalPaisa: 0,
+      }),
+    )
+    const user = userEvent.setup()
+    renderForms()
+
+    await pickBackfillMember(user)
+    expect(await screen.findByText(/পরিমাণ নির্ধারণ করা হয়নি/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /পুরোনো চাঁদা যোগ করুন/ })).toBeDisabled()
   })
 })

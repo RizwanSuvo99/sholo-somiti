@@ -20,7 +20,7 @@ export function TransactionForms({
   categories: Category[]
   members: Member[]
 }) {
-  const [open, setOpen] = useState<'income' | 'expense' | null>(null)
+  const [open, setOpen] = useState<'income' | 'expense' | 'delayFee' | null>(null)
 
   return (
     <div className="space-y-4">
@@ -35,15 +35,23 @@ export function TransactionForms({
         >
           ব্যয় যোগ করুন
         </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => setOpen(open === 'delayFee' ? null : 'delayFee')}
+        >
+          বিলম্ব ফি যোগ করুন
+        </Button>
       </div>
 
       {open === 'income' && <IncomeForm members={members} onDone={() => setOpen(null)} />}
       {open === 'expense' && <ExpenseForm categories={categories} onDone={() => setOpen(null)} />}
+      {open === 'delayFee' && <DelayFeeForm members={members} onDone={() => setOpen(null)} />}
     </div>
   )
 }
 
-function useSubmit(onDone: () => void) {
+function useSubmit(onDone: () => void, endpoint = '/api/admin/transactions') {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -52,7 +60,7 @@ function useSubmit(onDone: () => void) {
     setError(null)
     setPending(true)
     try {
-      const response = await fetch('/api/admin/transactions', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
@@ -196,6 +204,91 @@ function ExpenseForm({ categories, onDone }: { categories: Category[]; onDone: (
           </Field>
 
           <div className="flex items-end gap-2">
+            <Button type="submit" disabled={pending}>
+              {pending ? 'সংরক্ষণ হচ্ছে…' : 'সংরক্ষণ'}
+            </Button>
+            <Button type="button" variant="secondary" onClick={onDone}>
+              বাতিল
+            </Button>
+          </div>
+        </form>
+      </CardBody>
+    </Card>
+  )
+}
+
+/**
+ * A delay fee for one member.
+ *
+ * Its own form rather than another option in the income dropdown, because a
+ * delay fee must belong to somebody. The generic income form leaves the member
+ * optional — correct for a donation, wrong for a charge levied on a person —
+ * so `DELAY_FEE` is deliberately absent from that dropdown and lives here,
+ * where the member cannot be left blank.
+ *
+ * It is not counted in the member's মোট জমা. That is enforced in the query
+ * layer, not here: the deposit total is an allowlist of categories, so a fee
+ * is excluded by construction rather than by a filter someone has to remember.
+ */
+function DelayFeeForm({ members, onDone }: { members: Member[]; onDone: () => void }) {
+  const { submit, error, pending } = useSubmit(onDone, '/api/admin/transactions/delay-fee')
+  const [memberCode, setMemberCode] = useState('')
+  const [entryDate, setEntryDate] = useState<CivilDate | null>(today())
+  const [missing, setMissing] = useState<string | null>(null)
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const data = new FormData(event.currentTarget)
+
+    // The member rides in a hidden input, which HTML `required` does not cover.
+    if (!memberCode) return setMissing('সদস্য বেছে নিন')
+    setMissing(null)
+
+    void submit({
+      memberCode,
+      amount: String(data.get('amount') ?? ''),
+      note: String(data.get('note') ?? ''),
+      entryDate: entryDate ? formatCivilDate(entryDate) : '',
+    })
+  }
+
+  return (
+    <Card>
+      <CardHeader title="বিলম্ব ফি" />
+      <CardBody>
+        <p className="mb-4 text-sm text-muted">
+          দেরিতে যোগ দেওয়া সদস্যের জন্য আলাদা ফি। এটি জরিমানা নয় এবং সদস্যের “মোট জমা”-তে যুক্ত
+          হবে না — আলাদাভাবে দেখানো হবে।
+        </p>
+
+        <form onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-2">
+          {(error || missing) && (
+            <Alert tone="danger" className="sm:col-span-2">
+              {error ?? missing}
+            </Alert>
+          )}
+
+          <MemberSelect
+            label="সদস্য"
+            hint="যাঁর কাছ থেকে বিলম্ব ফি নেওয়া হয়েছে"
+            required
+            members={members}
+            value={memberCode}
+            onChange={setMemberCode}
+            placeholder="— সদস্য বাছুন —"
+          />
+
+          <Field label="বিলম্ব ফি (টাকা)" required>
+            <Input name="amount" inputMode="decimal" required />
+          </Field>
+
+          <DateField label="তারিখ" required value={entryDate} onChange={setEntryDate} />
+
+          <Field label="মন্তব্য">
+            <Input name="note" placeholder="প্রয়োজনে কারণ লিখুন" />
+          </Field>
+
+          <div className="flex items-end gap-2 sm:col-span-2">
             <Button type="submit" disabled={pending}>
               {pending ? 'সংরক্ষণ হচ্ছে…' : 'সংরক্ষণ'}
             </Button>

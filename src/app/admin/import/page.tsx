@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { Money } from '@/components/shared/money'
-import { civilDateLabel, dueMonthLabel } from '@/lib/bn'
+import { civilDateLabel, dueMonthLabel, IMPORT_KIND_BN } from '@/lib/bn'
 import { currentDueMonth, instantToDhakaCivil } from '@/lib/due-cycle'
 import { toBnDigits } from '@/lib/money'
 import { paginate } from '@/lib/paginate'
@@ -84,7 +84,7 @@ export default async function ImportPage({
                       {civilDateLabel(instantToDhakaCivil(batch.createdAt))}
                     </td>
                     <td className="px-4 py-2.5">
-                      {batch.kind === 'FINE_IMPORT' ? 'জরিমানা' : 'সবার চাঁদা'}
+                      {IMPORT_KIND_BN[batch.kind] ?? batch.kind}
                     </td>
                     <td className="px-4 py-2.5">
                       {batch.month && batch.year

@@ -51,12 +51,20 @@ enum TransactionType {
 enum IncomeCategory {
   MONTHLY_DUE
   FINE
+  // A late-joining charge, levied per member and separate from FINE: a fine is
+  // for missing a deadline, a delay fee is for joining after the society began.
+  // Kept apart so neither figure can hide inside the other.
+  DELAY_FEE
   OTHER_INCOME
 }
 
 enum ImportKind {
   FINE_IMPORT
   UNIFORM_DUE_IMPORT
+  // Every past month for one member, for someone who joins later and settles
+  // the whole history at once. UNIFORM_DUE_IMPORT cannot do this: it runs once
+  // per month for everybody, and skips members who had not yet joined.
+  MEMBER_DUE_BACKFILL
 }
 
 // ── Models ──────────────────────────────────────────────────────────────────

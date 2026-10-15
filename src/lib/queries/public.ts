@@ -27,6 +27,7 @@ export type PublicSummary = {
   totalCollectedPaisa: number
   totalDuePaisa: number
   totalFinePaisa: number
+  totalDelayFeePaisa: number
   totalOtherIncomePaisa: number
   totalExpensePaisa: number
   balancePaisa: number
@@ -73,15 +74,18 @@ export async function getPublicSummary(now = new Date()): Promise<PublicSummary>
 
   const totalDuePaisa = incomeOf('MONTHLY_DUE')
   const totalFinePaisa = incomeOf('FINE')
+  const totalDelayFeePaisa = incomeOf('DELAY_FEE')
   const totalOtherIncomePaisa = incomeOf('OTHER_INCOME')
   const totalExpensePaisa = expense._sum.amountPaisa ?? 0
-  const totalCollectedPaisa = totalDuePaisa + totalFinePaisa + totalOtherIncomePaisa
+  const totalCollectedPaisa =
+    totalDuePaisa + totalFinePaisa + totalDelayFeePaisa + totalOtherIncomePaisa
 
   return {
     activeMembers,
     totalCollectedPaisa,
     totalDuePaisa,
     totalFinePaisa,
+    totalDelayFeePaisa,
     totalOtherIncomePaisa,
     totalExpensePaisa,
     balancePaisa: totalCollectedPaisa - totalExpensePaisa,
@@ -170,6 +174,8 @@ export type PublicMemberProfile = {
   totalContributedPaisa: number
   totalFinePaidPaisa: number
   outstandingFinePaisa: number
+  /** Delay fees this member has paid. Never folded into the fine figures. */
+  delayFeePaidPaisa: number
   history: {
     year: number
     month: number
@@ -197,7 +203,7 @@ export async function getPublicMemberProfile(
 
   if (!member || !member.isActive) return null
 
-  const [history, contributions] = await Promise.all([
+  const [history, contributions, delayFees] = await Promise.all([
     prisma.duePayment.findMany({
       where: { memberId: member.id },
       select: {
@@ -220,6 +226,15 @@ export async function getPublicMemberProfile(
       },
       _sum: { amountPaisa: true },
     }),
+    prisma.transaction.aggregate({
+      where: {
+        memberId: member.id,
+        type: 'INCOME',
+        incomeCategory: 'DELAY_FEE',
+        voidedAt: null,
+      },
+      _sum: { amountPaisa: true },
+    }),
   ])
 
   return {
@@ -228,6 +243,7 @@ export async function getPublicMemberProfile(
     photoUrl: member.photoUrl,
     joinedOn: dbDateToCivil(member.joinedOn),
     totalContributedPaisa: contributions._sum.amountPaisa ?? 0,
+    delayFeePaidPaisa: delayFees._sum.amountPaisa ?? 0,
     totalFinePaidPaisa: history.reduce((sum, row) => sum + row.finePaidPaisa, 0),
     outstandingFinePaisa: history.reduce(
       (sum, row) => sum + (row.finePaisa - row.finePaidPaisa),
@@ -257,9 +273,11 @@ export type PublicLedgerEntry = {
   memberCode: string | null
 }
 
+// "বিলম্ব জরিমানা" would read as the delay fee beside it; a fine is a fine.
 const INCOME_LABEL: Record<string, string> = {
   MONTHLY_DUE: 'মাসিক চাঁদা',
-  FINE: 'বিলম্ব জরিমানা',
+  FINE: 'জরিমানা',
+  DELAY_FEE: 'বিলম্ব ফি',
   OTHER_INCOME: 'অন্যান্য আয়',
 }
 

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { civilDateSchema, requiredNote, takaToPaisaSchema, uuidSchema } from './common'
+import { civilDateSchema, memberCodeSchema, requiredNote, takaToPaisaSchema, uuidSchema } from './common'
 
 export const createIncomeSchema = z.object({
   type: z.literal('INCOME'),
@@ -29,9 +29,23 @@ export const createTransactionSchema = z.discriminatedUnion('type', [
   createExpenseSchema,
 ])
 
+/**
+ * A delay fee is entered through its own endpoint rather than the generic
+ * income form, so `memberId` can be required. `DELAY_FEE` is deliberately
+ * absent from `createIncomeSchema` above: two routes to the same category would
+ * mean delay fees that belong to nobody.
+ */
+export const delayFeeSchema = z.object({
+  memberCode: memberCodeSchema,
+  amount: takaToPaisaSchema,
+  entryDate: civilDateSchema,
+  note: z.string().trim().max(300).optional(),
+})
+
 export const voidTransactionSchema = z.object({
   reason: z.string().trim().min(3, 'কারণ লিখুন').max(300),
 })
 
 export type CreateTransactionBody = z.infer<typeof createTransactionSchema>
+export type DelayFeeBody = z.infer<typeof delayFeeSchema>
 export type VoidTransactionBody = z.infer<typeof voidTransactionSchema>

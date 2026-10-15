@@ -5,7 +5,7 @@ import { normalizeMemberCode } from '@/lib/member-code'
 import { Card, CardHeader } from '@/components/ui/card'
 import { StatHint, StatTile } from '@/components/public/stat-tile'
 import { MemberAvatar } from '@/components/shared/member-avatar'
-import { IconAlert, IconCheck, IconWallet } from '@/components/ui/icon'
+import { IconAlert, IconCheck, IconClock, IconWallet } from '@/components/ui/icon'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Money } from '@/components/shared/money'
 import { formatBDT, toBnDigits } from '@/lib/money'
@@ -64,7 +64,13 @@ export default async function PublicMemberProfilePage({
         </div>
       </header>
 
-      <section className="mb-6 grid gap-4 sm:grid-cols-3">
+      {/* Four tiles only when there is a delay fee to show, so the common
+          profile is not padded with a ৳0 that means nothing. */}
+      <section
+        className={`mb-6 grid gap-4 ${
+          profile.delayFeePaidPaisa > 0 ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-3'
+        }`}
+      >
         <StatTile
           tone="emerald"
           label="মোট জমা"
@@ -91,6 +97,14 @@ export default async function PublicMemberProfilePage({
             ) : undefined
           }
         />
+        {profile.delayFeePaidPaisa > 0 && (
+          <StatTile
+            tone="amber"
+            label="বিলম্ব ফি"
+            value={formatBDT(profile.delayFeePaidPaisa)}
+            icon={<IconClock className="size-5" />}
+          />
+        )}
       </section>
 
       <Card className="overflow-hidden">

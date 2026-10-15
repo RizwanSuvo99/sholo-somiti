@@ -6,6 +6,7 @@ export type DashboardData = {
   activeMembers: number
   totalDueCollectedPaisa: number
   totalFinesCollectedPaisa: number
+  totalDelayFeesCollectedPaisa: number
   totalOtherIncomePaisa: number
   totalExpensePaisa: number
   balancePaisa: number
@@ -90,6 +91,7 @@ export async function getDashboard(now = new Date()): Promise<DashboardData> {
 
   const totalDueCollectedPaisa = incomeOf('MONTHLY_DUE')
   const totalFinesCollectedPaisa = incomeOf('FINE')
+  const totalDelayFeesCollectedPaisa = incomeOf('DELAY_FEE')
   const totalOtherIncomePaisa = incomeOf('OTHER_INCOME')
   const totalExpensePaisa = expenseTotal._sum.amountPaisa ?? 0
 
@@ -106,10 +108,15 @@ export async function getDashboard(now = new Date()): Promise<DashboardData> {
     activeMembers,
     totalDueCollectedPaisa,
     totalFinesCollectedPaisa,
+    totalDelayFeesCollectedPaisa,
     totalOtherIncomePaisa,
     totalExpensePaisa,
     balancePaisa:
-      totalDueCollectedPaisa + totalFinesCollectedPaisa + totalOtherIncomePaisa - totalExpensePaisa,
+      totalDueCollectedPaisa +
+      totalFinesCollectedPaisa +
+      totalDelayFeesCollectedPaisa +
+      totalOtherIncomePaisa -
+      totalExpensePaisa,
     finesOutstandingPaisa: (fineCharged._sum.finePaisa ?? 0) - (finePaid._sum.finePaidPaisa ?? 0),
     currentDue: {
       dueMonth: current.dueMonth,
