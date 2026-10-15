@@ -252,16 +252,19 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
           aria-label="নির্বাচিত সদস্য"
           className="overflow-hidden rounded-2xl border border-brand-ring bg-brand-soft"
         >
-          <div className="relative aspect-3/2 w-full bg-slate-100 dark:bg-white/5">
+          {/* The same 4:5 portrait the member directory uses, because these are
+              the same photographs. A landscape frame had to crop a portrait
+              somewhere, and anchoring it to the top chose the background above
+              the subject — leaving a face at the bottom edge, which is the one
+              thing this panel exists to show. */}
+          <div className="relative aspect-4/5 w-full bg-slate-100 dark:bg-white/5">
             {selectedMember.photoUrl ? (
               <Image
                 src={selectedMember.photoUrl}
                 alt=""
                 fill
                 sizes="(min-width: 640px) 576px, 100vw"
-                // Anchored to the top: in a portrait photo the face sits high,
-                // and cropping it away would defeat the point of showing it.
-                className="object-cover object-top"
+                className="object-cover"
                 unoptimized
               />
             ) : (

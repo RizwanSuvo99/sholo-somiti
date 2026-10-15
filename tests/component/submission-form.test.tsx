@@ -149,7 +149,13 @@ describe('public submission form — ID selector', () => {
     const photo = panel.querySelector('img') as HTMLImageElement
     expect(photo.getAttribute('src')).toBe('https://img.invalid/a.jpg')
     expect(photo.getAttribute('data-nimg')).toBe('fill')
-    expect(panel.querySelector('.aspect-3\\/2')).not.toBeNull()
+
+    // The same portrait frame as the member directory, since these are the
+    // same photographs: a landscape frame had to crop a portrait somewhere,
+    // and it chose the background over the subject's face.
+    expect(panel.querySelector('.aspect-4\\/5')).not.toBeNull()
+    // Uncropped from the top — that is what pushed the face off the bottom.
+    expect(photo.className).not.toMatch(/object-top/)
     expect(container).toBeTruthy()
   })
 
