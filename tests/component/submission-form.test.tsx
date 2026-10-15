@@ -153,7 +153,13 @@ describe('public submission form — ID selector', () => {
     // The same portrait frame as the member directory, since these are the
     // same photographs: a landscape frame had to crop a portrait somewhere,
     // and it chose the background over the subject's face.
-    expect(panel.querySelector('.aspect-4\\/5')).not.toBeNull()
+    const frame = panel.querySelector('.aspect-4\\/5')!
+    expect(frame).not.toBeNull()
+    // Bounded by height, with the ratio setting the width. Sized the other way
+    // round the portrait grew taller than the viewport and pushed the rest of
+    // the form off screen.
+    expect(frame.className).toMatch(/\bh-\d/)
+    expect(frame.className).not.toMatch(/\bw-full\b/)
     // Uncropped from the top — that is what pushed the face off the bottom.
     expect(photo.className).not.toMatch(/object-top/)
     expect(container).toBeTruthy()

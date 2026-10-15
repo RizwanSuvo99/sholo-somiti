@@ -256,32 +256,40 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
               the same photographs. A landscape frame had to crop a portrait
               somewhere, and anchoring it to the top chose the background above
               the subject — leaving a face at the bottom edge, which is the one
-              thing this panel exists to show. */}
-          <div className="relative aspect-4/5 w-full bg-slate-100 dark:bg-white/5">
-            {selectedMember.photoUrl ? (
-              <Image
-                src={selectedMember.photoUrl}
-                alt=""
-                fill
-                sizes="(min-width: 640px) 576px, 100vw"
-                className="object-cover"
-                unoptimized
-              />
-            ) : (
-              <span
-                aria-hidden="true"
-                className={`grid size-full place-items-center bg-gradient-to-br ${avatarTone(selectedMember.memberCode)} text-8xl font-bold text-white/90`}
-              >
-                {(name || selectedMember.name).slice(0, 1)}
-              </span>
-            )}
+              thing this panel exists to show.
 
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/45 to-transparent p-4 pt-16">
-              <p className="text-xs font-medium text-white/80">আপনি বেছে নিয়েছেন</p>
-              <p className="truncate text-xl font-semibold text-white drop-shadow-sm">
-                {name || selectedMember.name}
-              </p>
-              <p className="tabular text-sm text-white/80">{selectedMember.memberCode}</p>
+              Bounded by height rather than width: at full width the portrait
+              became taller than the viewport and pushed the rest of the form
+              off screen. Fixing the height and letting the ratio set the width
+              keeps the whole subject in frame at half the size, instead of
+              cropping a shorter window out of the middle of them. */}
+          <div className="flex justify-center bg-slate-100 dark:bg-white/5">
+            <div className="relative aspect-4/5 h-72">
+              {selectedMember.photoUrl ? (
+                <Image
+                  src={selectedMember.photoUrl}
+                  alt=""
+                  fill
+                  sizes="240px"
+                  className="object-cover"
+                  unoptimized
+                />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className={`grid size-full place-items-center bg-gradient-to-br ${avatarTone(selectedMember.memberCode)} text-7xl font-bold text-white/90`}
+                >
+                  {(name || selectedMember.name).slice(0, 1)}
+                </span>
+              )}
+
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/45 to-transparent p-3 pt-12">
+                <p className="text-xs font-medium text-white/80">আপনি বেছে নিয়েছেন</p>
+                <p className="truncate text-lg font-semibold text-white drop-shadow-sm">
+                  {name || selectedMember.name}
+                </p>
+                <p className="tabular text-xs text-white/80">{selectedMember.memberCode}</p>
+              </div>
             </div>
           </div>
 
