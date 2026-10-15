@@ -52,10 +52,14 @@ export function MemberCard({ member }: { member: MemberCardData }) {
           </span>
         )}
 
-        {/* The badge keeps its own opaque tint rather than being given a white
-            background here: two competing bg-* utilities would be resolved by
-            stylesheet order, not by the order they are written. */}
-        <span className="absolute top-3 right-3">
+        {/* The backdrop goes on this wrapper, not on the badge. The badge's own
+            dark-mode fill is a 12% tint — enough over a solid panel, invisible
+            over a photograph — and it cannot simply be given a darker bg-*,
+            because `cn` only joins class names: two competing bg-* utilities
+            would be resolved by stylesheet order rather than by the order they
+            are written. A separate element has no such conflict, so the tint
+            keeps its colour coding and still lands on something opaque. */}
+        <span className="absolute top-3 right-3 rounded-full bg-white/80 backdrop-blur-sm dark:bg-slate-950/75">
           <StatusBadge status={member.currentMonthStatus} className="shadow-sm" />
         </span>
 
