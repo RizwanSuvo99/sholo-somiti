@@ -6,6 +6,7 @@ import { Card, CardBody } from '@/components/ui/card'
 import {
   IconAlert,
   IconCalendar,
+  IconClock,
   IconCoins,
   IconGift,
   IconReceipt,
@@ -78,8 +79,9 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Headline figures */}
-      <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Headline figures. Three across rather than four: a fifth income head
+          squeezed into four columns left the long labels wrapping twice. */}
+      <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatTile
           tone="sky"
           label="মোট আদায়কৃত চাঁদা"
@@ -91,6 +93,12 @@ export default async function HomePage() {
           label="আদায়কৃত জরিমানা"
           value={formatBDT(summary.totalFinePaisa)}
           icon={<IconAlert className="size-5" />}
+        />
+        <StatTile
+          tone="indigo"
+          label="আদায়কৃত বিলম্ব ফি"
+          value={formatBDT(summary.totalDelayFeePaisa)}
+          icon={<IconClock className="size-5" />}
         />
         <StatTile
           tone="violet"
@@ -161,7 +169,7 @@ export default async function HomePage() {
 
         <div className="grid gap-4">
           <StatTile
-            tone="indigo"
+            tone="slate"
             label="সক্রিয় সদস্য"
             value={`${toBnDigits(summary.activeMembers)} জন`}
             icon={<IconUsers className="size-5" />}

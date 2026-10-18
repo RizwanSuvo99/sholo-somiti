@@ -49,7 +49,7 @@ export default async function DashboardPage() {
           icon={<IconWallet className="size-5" />}
         />
         <StatCard
-          tone="indigo"
+          tone="slate"
           label="সক্রিয় সদস্য"
           value={`${toBnDigits(data.activeMembers)} জন`}
           icon={<IconUsers className="size-5" />}
@@ -72,7 +72,7 @@ export default async function DashboardPage() {
           }
         />
         <StatCard
-          tone="rose"
+          tone="indigo"
           label="আদায়কৃত বিলম্ব ফি"
           value={formatBDT(data.totalDelayFeesCollectedPaisa)}
           icon={<IconClock className="size-5" />}
