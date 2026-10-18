@@ -9,6 +9,7 @@
 import 'dotenv/config'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../src/generated/prisma/client'
+import { parseMemberCode } from '../src/lib/member-code'
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -69,6 +70,43 @@ async function main() {
 
   const counter = await prisma.counter.findUnique({ where: { key: 'member_code' } })
   if (!counter) missing.push("counters row 'member_code'")
+
+  // The counter records how many codes have been *issued*, not the highest code
+  // in use. Hand-editing a member_code therefore leaves the two out of step:
+  // move NHSS-26030 to a vacant NHSS-25002 and number 30 is spent but belongs to
+  // nobody, so the next member silently skips to 31. Report that drift here
+  // rather than discovering it in the member list.
+  if (counter) {
+    const codes = await prisma.member.findMany({ select: { memberCode: true } })
+    const sequences = codes
+      .map((row) => parseMemberCode(row.memberCode)?.sequence)
+      .filter((value): value is number => value !== undefined)
+    const highest = sequences.length > 0 ? Math.max(...sequences) : 0
+
+    if (counter.value < highest) {
+      // The next create would re-issue a number that is already taken and fail
+      // on the unique index.
+      missing.push(
+        `counters.member_code is ${counter.value} but sequence ${highest} is already in use`,
+      )
+    }
+
+    const taken = new Set(sequences)
+    const gaps = Array.from({ length: counter.value }, (_, i) => i + 1).filter(
+      (seq) => !taken.has(seq),
+    )
+    if (gaps.length > 0) {
+      console.warn(
+        `! member-code sequence has ${gaps.length} issued but unused number(s): ${gaps.join(', ')}.`,
+      )
+      console.warn(
+        '  Expected after deleting a member. Unexpected after renaming one — in that',
+      )
+      console.warn(
+        "  case lower 'counters.member_code' so the sequence stays continuous.\n",
+      )
+    }
+  }
 
   if (missing.length > 0) {
     console.error('✗ Database is missing constraints that the application depends on:\n')
