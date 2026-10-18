@@ -39,6 +39,12 @@ export type PublicSummary = {
     paidCount: number
     unpaidCount: number
     pendingCount: number
+    /**
+     * Members billed for this month — the denominator the three counts above
+     * add up to. Not the same as `activeMembers`: someone who joins mid-cycle
+     * is active but is not billed until the next one.
+     */
+    billedCount: number
   }
 }
 
@@ -97,6 +103,7 @@ export async function getPublicSummary(now = new Date()): Promise<PublicSummary>
       paidCount: countOf('PAID_ON_TIME') + countOf('PAID_LATE'),
       unpaidCount: countOf('UNPAID'),
       pendingCount: countOf('PENDING'),
+      billedCount: statusCounts.reduce((total, row) => total + row._count._all, 0),
     },
   }
 }

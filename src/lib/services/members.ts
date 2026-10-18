@@ -4,6 +4,7 @@ import { formatMemberCode } from '@/lib/member-code'
 import { civilToDbDate, dbDateToCivil, type CivilDate } from '@/lib/due-cycle'
 import { isUniqueViolation } from '@/lib/api/errors'
 import { MEMBER_DEPOSIT_CATEGORIES } from '@/lib/settlement'
+import { billMemberForOpenMonth } from '@/lib/services/dues'
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
@@ -36,14 +37,14 @@ export type CreateMemberInput = {
   joinedOn: CivilDate
 }
 
-export async function createMember(input: CreateMemberInput) {
+export async function createMember(input: CreateMemberInput, now: Date = new Date()) {
   // The unique constraint on member_code is the final backstop. A retry covers
   // the vanishingly rare case where a code was inserted by some other path.
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       return await prisma.$transaction(async (tx) => {
         const sequence = await nextMemberSequence(tx)
-        return tx.member.create({
+        const member = await tx.member.create({
           data: {
             memberCode: formatMemberCode(input.joinedOn.y, sequence),
             name: input.name,
@@ -55,6 +56,12 @@ export async function createMember(input: CreateMemberInput) {
             joinedOn: civilToDbDate(input.joinedOn),
           },
         })
+
+        // Same transaction, so a member never exists without the row for the
+        // cycle they are already inside.
+        await billMemberForOpenMonth({ id: member.id, joinedOn: input.joinedOn }, now, tx)
+
+        return member
       })
     } catch (error) {
       if (attempt === 2 || !isUniqueViolation(error)) throw error

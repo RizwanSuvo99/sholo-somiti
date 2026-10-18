@@ -12,9 +12,15 @@ let sequence = 0
 
 export async function makeMember(overrides: { joinedOn?: string; name?: string } = {}) {
   sequence += 1
+  // Take the number from the real counter, so a test that mixes this factory
+  // with createMember cannot collide on member_code — and so the factory does
+  // not leave the counter trailing the codes it has handed out.
+  const [{ value }] = await prisma.$queryRaw<{ value: number }[]>`
+    UPDATE counters SET value = value + 1 WHERE key = 'member_code' RETURNING value
+  `
   return prisma.member.create({
     data: {
-      memberCode: formatMemberCode(2025, sequence),
+      memberCode: formatMemberCode(2025, value),
       name: overrides.name ?? `সদস্য ${sequence}`,
       joinedOn: civilToDbDate(parseCivilDate(overrides.joinedOn ?? '2025-01-01')),
     },

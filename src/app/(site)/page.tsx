@@ -36,10 +36,11 @@ export default async function HomePage() {
   const current = { dueYear: summary.currentDue.dueYear, dueMonth: summary.currentDue.dueMonth }
   const deadline = instantToDhakaCivil(new Date(summary.currentDue.deadlineIso))
 
-  const collectedPercent =
-    summary.activeMembers > 0
-      ? Math.round((summary.currentDue.paidCount / summary.activeMembers) * 100)
-      : 0
+  // Out of the members billed for this month, not every active member: a
+  // mid-cycle joiner is not billed yet, and counting them would make the bar
+  // and the three figures below disagree with each other.
+  const billed = summary.currentDue.billedCount
+  const collectedPercent = billed > 0 ? Math.round((summary.currentDue.paidCount / billed) * 100) : 0
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-10">
@@ -136,7 +137,7 @@ export default async function HomePage() {
               <div className="flex items-baseline justify-between text-sm">
                 <span className="text-muted">জমা দিয়েছেন</span>
                 <span className="font-medium tabular">
-                  {toBnDigits(summary.currentDue.paidCount)} / {toBnDigits(summary.activeMembers)} জন
+                  {toBnDigits(summary.currentDue.paidCount)} / {toBnDigits(billed)} জন
                 </span>
               </div>
               <div

@@ -1,6 +1,13 @@
 import 'server-only'
 import { prisma } from '@/lib/prisma'
-import { civilToDbDate, dueWindow, type DueMonth } from '@/lib/due-cycle'
+import {
+  civilToDbDate,
+  currentDueMonth,
+  dueWindow,
+  ordinal,
+  type CivilDate,
+  type DueMonth,
+} from '@/lib/due-cycle'
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
@@ -58,6 +65,59 @@ export async function generateDuePayments(
     amountPaisa,
     settingMissing: setting === null,
   }
+}
+
+/**
+ * Bill one newly created member for the cycle that is already open.
+ *
+ * Due rows exist only from the moment a month is opened, so a member added
+ * partway through an open month would otherwise have no row for it: never asked
+ * to pay, and absent from the dashboard's paid/unpaid breakdown while still
+ * counted among the active members, so the two sides stopped agreeing.
+ *
+ * Eligibility is the same rule `generateDuePayments` applies — billed only if
+ * they had joined by the day the window opened — so backdating a joining date
+ * to the society's start bills them for this month, while a genuine mid-cycle
+ * joiner still starts from the next one.
+ *
+ * Does nothing unless the month is already open for somebody else. Opening a
+ * month off the back of a member insert would bill one person for a cycle the
+ * society has not started collecting.
+ */
+export async function billMemberForOpenMonth(
+  member: { id: string; joinedOn: CivilDate },
+  now: Date,
+  client: Tx | typeof prisma = prisma,
+): Promise<boolean> {
+  const dm = currentDueMonth(now)
+
+  if (ordinal(member.joinedOn) > ordinal(dueWindow(dm).startCivil)) return false
+
+  const open = await client.duePayment.findFirst({
+    where: { year: dm.dueYear, month: dm.dueMonth },
+    select: { id: true },
+  })
+  if (!open) return false
+
+  const setting = await client.monthlyDueSetting.findUnique({
+    where: { year_month: { year: dm.dueYear, month: dm.dueMonth } },
+    select: { amountPaisa: true },
+  })
+
+  const { count } = await client.duePayment.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        memberId: member.id,
+        year: dm.dueYear,
+        month: dm.dueMonth,
+        amountDuePaisa: setting?.amountPaisa ?? 0,
+        status: 'PENDING' as const,
+      },
+    ],
+  })
+
+  return count > 0
 }
 
 export async function upsertDueSetting(dm: DueMonth, amountPaisa: number, note?: string) {
