@@ -53,8 +53,20 @@ function lookupResponse(memberCode: string, overrides: Record<string, unknown> =
   return {
     found: true,
     member: { id: memberCode, memberCode, name: member?.name ?? '' },
-    currentDue: { dueMonth: 10, dueYear: 2026, label: 'অক্টোবর ২০২৬', amountPaisa: 50_000 },
-    eligibleDueMonths: [month(2026, 10, 'অক্টোবর ২০২৬', 50_000, 0, { isCurrent: true })],
+    // Derived, never hardcoded: a fixed month stops being the open one the
+    // moment the calendar passes its 20th, and the form would then correctly
+    // add a ৳২০০ late fine that these tests do not expect.
+    currentDue: {
+      dueMonth: CURRENT.dueMonth,
+      dueYear: CURRENT.dueYear,
+      label: dueMonthLabel(CURRENT),
+      amountPaisa: 50_000,
+    },
+    eligibleDueMonths: [
+      month(CURRENT.dueYear, CURRENT.dueMonth, dueMonthLabel(CURRENT), 50_000, 0, {
+        isCurrent: true,
+      }),
+    ],
     ...overrides,
   }
 }
