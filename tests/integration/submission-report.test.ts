@@ -128,7 +128,7 @@ describe('monthly submission report', () => {
     expect(row.fatherName).toBe('পিতার নাম')
     expect(row.mobile).toBe('01700000000')
     expect(row.email).toBe('a@b.test')
-    expect(row.screenshotUrl).toBe('https://example.invalid/proof.jpg')
+    expect(row.screenshotUrl).toBe('https://res.cloudinary.com/demo/image/upload/v1/sholo/proof.jpg')
     expect(row.transactionRef).toBeTruthy()
     expect(row.bankOrProvider).toBe('BKASH')
   })

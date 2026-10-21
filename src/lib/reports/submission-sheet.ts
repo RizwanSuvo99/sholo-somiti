@@ -6,6 +6,7 @@ import {
 } from '@/lib/bn'
 import { civilToDbDate, instantToDhakaCivil, type CivilDate } from '@/lib/due-cycle'
 import { fromPaisa } from '@/lib/money'
+import { isAllowedUploadUrl } from '@/lib/uploads/allowed-url'
 import type { SubmissionCycleReport, SubmissionReportRow } from '@/lib/queries/reports'
 
 /**
@@ -103,7 +104,14 @@ export function submissionRowCells(row: SubmissionReportRow): SheetCell[] {
     text(bankLabel(row)),
     text(row.senderNumber),
     text(row.transactionRef),
-    row.screenshotUrl ? linkCell(row.screenshotUrl, 'ছবি দেখুন') : null,
+    // Only a proof on the upload host becomes a clickable link. Anything else
+    // is shown as plain text: visible to the admin, but not one click from a
+    // phishing page or a file:// path that would leak an NTLM hash.
+    row.screenshotUrl
+      ? isAllowedUploadUrl(row.screenshotUrl)
+        ? linkCell(row.screenshotUrl, 'ছবি দেখুন')
+        : text(row.screenshotUrl)
+      : null,
     text(row.rejectionReason),
   ]
 }

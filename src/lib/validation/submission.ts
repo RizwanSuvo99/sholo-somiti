@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { civilDateSchema, memberCodeSchema, monthSchema, takaToPaisaSchema, yearSchema } from './common'
+import { isAllowedUploadUrl } from '@/lib/uploads/allowed-url'
 
 export const createSubmissionSchema = z
   .object({
@@ -12,7 +13,12 @@ export const createSubmissionSchema = z
     bankName: z.string().trim().max(120).optional().nullable(),
     mobileBankingProvider: z.enum(['BKASH', 'NAGAD']).optional().nullable(),
     mobileBankingNumber: z.string().trim().max(20).optional().nullable(),
-    screenshotUrl: z.string().url('ছবি আপলোড করুন'),
+    screenshotUrl: z
+      .string()
+      .url('ছবি আপলোড করুন')
+      // The URL comes from the client, so the host is checked rather than
+      // trusted. See src/lib/uploads/allowed-url.ts.
+      .refine(isAllowedUploadUrl, 'ছবির লিংক সঠিক নয় — আবার আপলোড করুন'),
     screenshotPublicId: z.string().trim().max(200).optional().nullable(),
     dueMonth: monthSchema.optional(),
     dueYear: yearSchema.optional(),

@@ -56,7 +56,7 @@ export async function makeSubmission(
       paymentMedium: 'MOBILE_BANKING',
       mobileBankingProvider: 'BKASH',
       mobileBankingNumber: '01700000000',
-      screenshotUrl: 'https://example.invalid/proof.jpg',
+      screenshotUrl: 'https://res.cloudinary.com/demo/image/upload/v1/sholo/proof.jpg',
       dueMonth: dm.dueMonth,
       dueYear: dm.dueYear,
     },

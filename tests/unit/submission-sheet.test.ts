@@ -27,7 +27,7 @@ const paid: SubmissionReportRow = {
   bankOrProvider: 'BKASH',
   senderNumber: '01800000000',
   transactionRef: 'TXN12345',
-  screenshotUrl: 'https://res.cloudinary.test/proof.jpg',
+  screenshotUrl: 'https://res.cloudinary.com/demo/image/upload/proof.jpg',
   rejectionReason: null,
 }
 
@@ -88,17 +88,29 @@ describe('submission report sheet', () => {
 
     expect(cell).toEqual({
       type: 'Formula',
-      value: '=HYPERLINK("https://res.cloudinary.test/proof.jpg","ছবি দেখুন")',
+      value: '=HYPERLINK("https://res.cloudinary.com/demo/image/upload/proof.jpg","ছবি দেখুন")',
     })
   })
 
   it('escapes a quote in the screenshot URL instead of breaking the formula', () => {
     const cell = at(
-      submissionRowCells({ ...paid, screenshotUrl: 'https://x.test/a"b.jpg' }),
+      submissionRowCells({
+        ...paid,
+        screenshotUrl: 'https://res.cloudinary.com/demo/a"b.jpg',
+      }),
       'প্রমাণের ছবি',
     ) as { value: string }
 
-    expect(cell.value).toBe('=HYPERLINK("https://x.test/a""b.jpg","ছবি দেখুন")')
+    expect(cell.value).toBe('=HYPERLINK("https://res.cloudinary.com/demo/a""b.jpg","ছবি দেখুন")')
+  })
+
+  it('will not make a link out of a proof stored somewhere other than the upload host', () => {
+    // The URL reaches the database from the client, so a crafted submission
+    // could name any host. Shown, but never clickable.
+    for (const url of ['https://attacker.test/a.jpg', 'file://a-server/share/a.jpg']) {
+      const cell = at(submissionRowCells({ ...paid, screenshotUrl: url }), 'প্রমাণের ছবি')
+      expect(cell).toEqual({ type: String, value: url })
+    }
   })
 
   it('dates the sending day as the Dhaka calendar day, whatever the server timezone', () => {
