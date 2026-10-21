@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   SUBMISSION_SHEET_COLUMNS,
   buildSubmissionSheet,
+  linkCell,
   submissionReportFileName,
   submissionRowCells,
 } from '@/lib/reports/submission-sheet'
@@ -92,16 +93,14 @@ describe('submission report sheet', () => {
     })
   })
 
-  it('escapes a quote in the screenshot URL instead of breaking the formula', () => {
-    const cell = at(
-      submissionRowCells({
-        ...paid,
-        screenshotUrl: 'https://res.cloudinary.com/demo/a"b.jpg',
-      }),
-      'প্রমাণের ছবি',
-    ) as { value: string }
-
-    expect(cell.value).toBe('=HYPERLINK("https://res.cloudinary.com/demo/a""b.jpg","ছবি দেখুন")')
+  it('doubles a quote so it cannot close the formula early', () => {
+    // A URL that reaches the sheet has already been refused if it was not
+    // canonical, so a quote cannot arrive here any more. The escaping stays as
+    // the second line of defence and is asserted directly.
+    expect(linkCell('https://x.test/a"b.jpg', 'ছবি দেখুন')).toEqual({
+      type: 'Formula',
+      value: '=HYPERLINK("https://x.test/a""b.jpg","ছবি দেখুন")',
+    })
   })
 
   it('will not make a link out of a proof stored somewhere other than the upload host', () => {

@@ -48,7 +48,7 @@ export const SUBMISSION_SHEET_COLUMNS: { header: string; width: number }[] = [
 ]
 
 /** Excel takes the label from a HYPERLINK formula; a bare URL is not clickable. */
-function linkCell(url: string, label: string): SheetCell {
+export function linkCell(url: string, label: string): SheetCell {
   const quoted = (value: string) => `"${value.replace(/"/g, '""')}"`
   return { type: 'Formula', value: `=HYPERLINK(${quoted(url)},${quoted(label)})` }
 }
