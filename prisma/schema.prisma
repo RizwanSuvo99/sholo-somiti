@@ -116,6 +116,11 @@ model Member {
   submissions  PaymentSubmission[]
   transactions Transaction[]
 
+  /// The admin's private lending book. Nothing about these belongs to the
+  /// society, and no society figure reads them; see PersonalLoan.
+  personalLoans      PersonalLoan[]
+  personalRepayments PersonalRepayment[]
+
   @@index([isActive])
   @@index([name])
   @@map("members")
@@ -337,4 +342,61 @@ model JobRun {
   @@unique([job, periodKey])
   @@index([job, startedAt])
   @@map("job_runs")
+}
+
+// ── The admin's private lending book ────────────────────────────────────────
+//
+// Money the admin lent to people out of their own pocket. It is NOT society
+// money and is deliberately kept out of every society figure: these tables are
+// not referenced by Transaction, DuePayment or any dashboard aggregate, so the
+// society's books cannot move because of something recorded here.
+//
+// They borrow nothing from the society but the member roster — a member_id, so
+// the admin can pick a person by the ID and name they already know instead of
+// retyping them. Members are never hard-deleted, so that reference is stable.
+
+/// One sum handed to one person. Lending again later is another row, not an
+/// edit, so the history of what was given stays readable.
+model PersonalLoan {
+  id       String @id @default(uuid()) @db.Uuid
+  memberId String @map("member_id") @db.Uuid
+
+  amountPaisa Int      @map("amount_paisa")
+  /// The day the money changed hands, as a calendar day (timezone-free).
+  lentOn      DateTime @map("lent_on") @db.Date
+  note        String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Restrict)
+
+  @@index([memberId])
+  @@index([lentOn])
+  @@map("personal_loans")
+}
+
+/// One installment paid back.
+///
+/// Attached to the member rather than to a particular loan: the admin takes
+/// repayments against what a person owes in total, and forcing them to say
+/// which loan a note of taka settles would invent a decision they never make.
+/// The service layer refuses a repayment larger than the outstanding balance,
+/// which is what keeps "receivable − collected = outstanding" exactly true.
+model PersonalRepayment {
+  id       String @id @default(uuid()) @db.Uuid
+  memberId String @map("member_id") @db.Uuid
+
+  amountPaisa Int      @map("amount_paisa")
+  paidOn      DateTime @map("paid_on") @db.Date
+  note        String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Restrict)
+
+  @@index([memberId])
+  @@index([paidOn])
+  @@map("personal_repayments")
 }

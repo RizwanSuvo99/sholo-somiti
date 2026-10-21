@@ -12,6 +12,9 @@ const LINKS = [
   { href: '/admin/transactions', label: 'আয়-ব্যয়', dot: 'bg-rose-500' },
   { href: '/admin/import', label: 'পুরোনো তথ্য', dot: 'bg-violet-500' },
   { href: '/admin/reports', label: 'মাসিক রিপোর্ট', dot: 'bg-teal-500' },
+  // The admin's own lending book, not the society's money — last in the list
+  // and in its own colour so it never reads as part of the accounts above.
+  { href: '/admin/personal-dues', label: 'ব্যক্তিগত পাওনা', dot: 'bg-fuchsia-500' },
 ]
 
 export function Sidebar({ pendingCount }: { pendingCount: number }) {

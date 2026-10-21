@@ -26,6 +26,8 @@ const REQUIRED_CHECKS = [
   'payment_submissions_due_month_range',
   'payment_submissions_medium_shape',
   'payment_submissions_rejection_has_reason',
+  'personal_loans_amount_positive',
+  'personal_repayments_amount_positive',
   'transactions_amount_positive',
   'transactions_category_shape',
   'transactions_note_not_blank',
