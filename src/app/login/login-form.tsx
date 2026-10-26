@@ -1,14 +1,13 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState, type FormEvent } from 'react'
+import { safeNextPath } from '@/lib/auth/next-path'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody } from '@/components/ui/card'
 import { Field, Input } from '@/components/ui/field'
 import { Alert } from '@/components/ui/alert'
 
 export function LoginForm({ nextPath }: { nextPath?: string }) {
-  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -35,10 +34,19 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
         return
       }
 
-      // Server Components cache per-route; refresh so the admin shell re-renders
-      // with the new session rather than the logged-out version.
-      router.replace(nextPath && nextPath.startsWith('/') ? nextPath : '/admin')
-      router.refresh()
+      // A full document load, deliberately, not router.replace().
+      //
+      // The router version called replace() and refresh() back to back, and
+      // refresh() re-renders the *current* route — it discarded the in-flight
+      // navigation and left the admin sitting on /login?next=/admin. The
+      // production access log showed it plainly: a successful POST followed
+      // only by an RSC refetch of /login, with no request for /admin at all.
+      // On localhost the replace won the race, so it never showed up there.
+      //
+      // One fresh request also guarantees the new cookie is read by middleware
+      // and by every server component, with no stale client router cache in
+      // the way — which matters right after a deploy.
+      window.location.assign(safeNextPath(nextPath))
     } catch {
       setError('সংযোগে সমস্যা হয়েছে')
     } finally {
