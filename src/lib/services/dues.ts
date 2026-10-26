@@ -120,10 +120,37 @@ export async function billMemberForOpenMonth(
   return count > 0
 }
 
+/**
+ * Set what a month costs, and carry that price onto the rows already open for it.
+ *
+ * The rollover opens a row per member the moment a cycle begins, snapshotting
+ * whatever the month costs at that instant — zero, if the admin has not priced
+ * it yet. Without the back-fill below that zero outlives the setting: the admin
+ * dues page shows ৳0, and anything reading the snapshot has to remember to fall
+ * back to the setting instead. Writing the price onto the rows removes the
+ * stale value rather than compensating for it everywhere it is read.
+ *
+ * Only months nobody has settled are touched. A row that is already paid keeps
+ * the figure it was settled against — otherwise raising a price would hand a
+ * member who paid in full a fresh debt for the difference.
+ */
 export async function upsertDueSetting(dm: DueMonth, amountPaisa: number, note?: string) {
-  return prisma.monthlyDueSetting.upsert({
-    where: { year_month: { year: dm.dueYear, month: dm.dueMonth } },
-    update: { amountPaisa, note: note ?? null },
-    create: { year: dm.dueYear, month: dm.dueMonth, amountPaisa, note: note ?? null },
+  return prisma.$transaction(async (tx) => {
+    const setting = await tx.monthlyDueSetting.upsert({
+      where: { year_month: { year: dm.dueYear, month: dm.dueMonth } },
+      update: { amountPaisa, note: note ?? null },
+      create: { year: dm.dueYear, month: dm.dueMonth, amountPaisa, note: note ?? null },
+    })
+
+    await tx.duePayment.updateMany({
+      where: {
+        year: dm.dueYear,
+        month: dm.dueMonth,
+        status: { in: ['PENDING', 'UNPAID'] },
+      },
+      data: { amountDuePaisa: amountPaisa },
+    })
+
+    return setting
   })
 }

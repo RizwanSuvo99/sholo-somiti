@@ -402,28 +402,55 @@ export async function approveSubmission(
         submissionId,
       )
 
+      // The price of every month about to be settled, not only the target.
+      //
+      // The rollover opens a row for each member the moment a cycle begins. If
+      // the admin has not priced that month yet the row stores
+      // `amountDuePaisa = 0`, and pricing it afterwards does not revisit rows
+      // already created. `lookupMember` handles this by quoting the live
+      // setting whenever the row reads zero — so the member is asked for the
+      // real amount. Approval has to reach the same number: reading the stale
+      // zero would leave nothing owed and file the whole payment as surplus
+      // other income rather than their subscription, which is a real
+      // misposting, not a display problem.
+      const settings = await tx.monthlyDueSetting.findMany({
+        where: {
+          OR: [
+            ...rows.map((row) => ({ year: row.year, month: row.month })),
+            { year: target.dueYear, month: target.dueMonth },
+          ],
+        },
+        select: { year: true, month: true, amountPaisa: true },
+      })
+      const priceOf = new Map(settings.map((row) => [`${row.year}-${row.month}`, row.amountPaisa]))
+
       let targetAmountPaisa = 0
       if (needsTargetRow) {
-        const setting = await tx.monthlyDueSetting.findUnique({
-          where: { year_month: { year: target.dueYear, month: target.dueMonth } },
-          select: { amountPaisa: true },
-        })
-        if (!setting) warnings.push('DUE_SETTING_MISSING')
-        targetAmountPaisa = setting?.amountPaisa ?? 0
+        const price = priceOf.get(`${target.dueYear}-${target.dueMonth}`)
+        if (price === undefined) warnings.push('DUE_SETTING_MISSING')
+        targetAmountPaisa = price ?? 0
       }
 
       const outstanding: OutstandingMonth[] = [
-        ...rows.map((row) => ({
-          dueYear: row.year,
-          dueMonth: row.month,
-          duePaisa: Math.max(0, row.amountDuePaisa - row.amountPaidPaisa),
-          finePaisa: fineOwedFor(
-            { dueYear: row.year, dueMonth: row.month },
-            sendingCivil,
-            row.finePaisa,
-            row.finePaidPaisa,
-          ),
-        })),
+        ...rows.map((row) => {
+          // The snapshot wins whenever it carries a real figure — a member owes
+          // what they were billed, even if the month's price changed since.
+          // Only a zero, which means "never priced", falls through to the
+          // current setting. Same precedence as the form's quote.
+          const billed = row.amountDuePaisa || (priceOf.get(`${row.year}-${row.month}`) ?? 0)
+
+          return {
+            dueYear: row.year,
+            dueMonth: row.month,
+            duePaisa: Math.max(0, billed - row.amountPaidPaisa),
+            finePaisa: fineOwedFor(
+              { dueYear: row.year, dueMonth: row.month },
+              sendingCivil,
+              row.finePaisa,
+              row.finePaidPaisa,
+            ),
+          }
+        }),
         ...(needsTargetRow
           ? [
               {
