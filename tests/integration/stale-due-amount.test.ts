@@ -200,7 +200,7 @@ describe('pricing a month that is already open', () => {
     expect(row.status).toBe('PAID_ON_TIME')
   })
 
-  it('does not overwrite a row that was already billed a real amount', async () => {
+  it('re-prices a row nobody has paid against, so a corrected amount reaches everyone', async () => {
     const { upsertDueSetting } = await import('@/lib/services/dues')
     const member = await makeMember()
     await makeDueSetting(NOVEMBER, 200_000)
@@ -214,5 +214,36 @@ describe('pricing a month that is already open', () => {
       where: { memberId_year_month: { memberId: member.id, year: 2026, month: 11 } },
     })
     expect(row.amountDuePaisa).toBe(PRICE)
+  })
+
+  /**
+   * A month part-paid is the case where blanket re-pricing does damage.
+   *
+   * One transfer can settle several months and leave the last one short, so the
+   * row sits PENDING with money already against it. Re-pricing it downward
+   * would put amountDuePaisa below amountPaidPaisa — a member recorded as
+   * having paid more than they were ever billed, which no screen can explain.
+   * The member has already been told what they owe and paid toward it, so their
+   * bill stands.
+   */
+  it('leaves a part-paid month\'s bill alone, however the price moves', async () => {
+    const member = await makeMember()
+    await makeDueSetting(NOVEMBER, PRICE)
+    await generateDuePayments(NOVEMBER)
+
+    await prisma.duePayment.update({
+      where: { memberId_year_month: { memberId: member.id, year: 2026, month: 11 } },
+      data: { amountPaidPaisa: 250_000, status: 'PENDING' },
+    })
+
+    const { upsertDueSetting } = await import('@/lib/services/dues')
+    await upsertDueSetting(NOVEMBER, 100_000)
+
+    const row = await prisma.duePayment.findUniqueOrThrow({
+      where: { memberId_year_month: { memberId: member.id, year: 2026, month: 11 } },
+    })
+    expect(row.amountDuePaisa).toBe(PRICE)
+    // The invariant that matters: never billed less than already collected.
+    expect(row.amountDuePaisa).toBeGreaterThanOrEqual(row.amountPaidPaisa)
   })
 })

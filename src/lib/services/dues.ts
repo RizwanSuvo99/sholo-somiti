@@ -130,9 +130,19 @@ export async function billMemberForOpenMonth(
  * back to the setting instead. Writing the price onto the rows removes the
  * stale value rather than compensating for it everywhere it is read.
  *
- * Only months nobody has settled are touched. A row that is already paid keeps
- * the figure it was settled against — otherwise raising a price would hand a
- * member who paid in full a fresh debt for the difference.
+ * Only rows with nothing yet collected against them are touched. A row that is
+ * paid — in full or in part — keeps the figure it was billed:
+ *
+ *   * raising a price must not hand a member who paid in full a fresh debt for
+ *     the difference, and
+ *   * lowering one must not push `amountDuePaisa` under `amountPaidPaisa`,
+ *     which would record somebody as having paid more than they were ever
+ *     billed. A part-paid month is reachable, because one transfer can settle
+ *     several months and leave the last short, so the row sits PENDING with
+ *     money already against it.
+ *
+ * Someone part-way through paying has already been told what they owe, so their
+ * bill stands either way.
  */
 export async function upsertDueSetting(dm: DueMonth, amountPaisa: number, note?: string) {
   return prisma.$transaction(async (tx) => {
@@ -147,6 +157,7 @@ export async function upsertDueSetting(dm: DueMonth, amountPaisa: number, note?:
         year: dm.dueYear,
         month: dm.dueMonth,
         status: { in: ['PENDING', 'UNPAID'] },
+        amountPaidPaisa: 0,
       },
       data: { amountDuePaisa: amountPaisa },
     })
