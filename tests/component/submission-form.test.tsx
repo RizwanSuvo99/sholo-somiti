@@ -315,7 +315,11 @@ describe('public submission form — ID selector', () => {
     expect(screen.getByText(/১,৯০০/)).toBeInTheDocument()
   })
 
-  it('only covers months up to the one chosen', async () => {
+  it('quotes everything owed, with no month left to choose', async () => {
+    // There is nothing to pick: a form always pays the open cycle, and a missed
+    // month's arrears ride along with it. Letting the member pay only up to an
+    // older month is what allowed NHSS-25024 to file for October a month after
+    // October had closed, on top of a November form that already covered it.
     vi.stubGlobal(
       'fetch',
       mockLookup({
@@ -331,15 +335,15 @@ describe('public submission form — ID selector', () => {
 
     render(<SubmissionForm members={MEMBERS} />)
     await pickMember(user, /আব্দুল ইসলাম/)
-    await waitFor(() => expect(screen.getByLabelText(/পরিমাণ/)).toHaveValue('1200'))
 
-    // Paying only up to the older month drops the current one from the total.
-    const older = monthsAgo(1)
-    await user.selectOptions(
-      screen.getByLabelText(/কোন মাস পর্যন্ত/),
-      `${older.dueYear}-${older.dueMonth}`,
-    )
-    await waitFor(() => expect(screen.getByLabelText(/পরিমাণ/)).toHaveValue('700'))
+    // ৳700 arrears + ৳200 fine + ৳500 current, and no way to ask for less.
+    await waitFor(() => expect(screen.getByLabelText(/পরিমাণ/)).toHaveValue('1200'))
+    expect(screen.queryByLabelText(/কোন মাস পর্যন্ত/)).not.toBeInTheDocument()
+
+    // The month being paid is shown, as text rather than a choice.
+    const shown = screen.getByLabelText(/কোন মাসের চাঁদা/)
+    expect(shown).toHaveValue(dueMonthLabel(CURRENT))
+    expect(shown).toHaveAttribute('readonly')
   })
 
   it('leaves out a month already awaiting review', async () => {
@@ -385,7 +389,7 @@ describe('public submission form — ID selector', () => {
     expect(amount).toHaveValue('500')
   })
 
-  it('re-quotes the amount when a different month is chosen', async () => {
+  it('breaks the total down so the member sees both months', async () => {
     const older = monthsAgo(1)
     vi.stubGlobal(
       'fetch',
@@ -404,11 +408,9 @@ describe('public submission form — ID selector', () => {
     await pickMember(user, /আব্দুল ইসলাম/)
     await waitFor(() => expect(screen.getByLabelText(/পরিমাণ/)).toHaveValue('1200'))
 
-    await user.selectOptions(
-      screen.getByLabelText(/কোন মাস পর্যন্ত/),
-      `${older.dueYear}-${older.dueMonth}`,
-    )
-    await waitFor(() => expect(screen.getByLabelText(/পরিমাণ/)).toHaveValue('700'))
+    expect(screen.getByText('যা পরিশোধ হবে')).toBeInTheDocument()
+    expect(screen.getByText(dueMonthLabel(older))).toBeInTheDocument()
+    expect(screen.getByText(dueMonthLabel(CURRENT))).toBeInTheDocument()
   })
 
   it('will not let a month be chosen before the admin has priced it', async () => {
@@ -437,8 +439,18 @@ describe('public submission form — ID selector', () => {
     expect(screen.getByRole('button', { name: /জমা দিন/ })).toBeDisabled()
   })
 
-  it('still accepts arrears when only the current month is unpriced', async () => {
-    // The older month has a price and is genuinely owed, so it stays payable.
+  it('waits for the admin to price the open month, even when arrears exist', async () => {
+    /**
+     * A deliberate narrowing, and the one cost of the one-form rule.
+     *
+     * A form may only target the open cycle, so when that month has no price
+     * yet there is nothing to target and the arrears cannot be paid on their
+     * own. Previously the member could file for the older month by itself —
+     * which is precisely the affordance that let NHSS-25024 pay October twice.
+     *
+     * The admin pricing the month unblocks it, and the arrears are then folded
+     * into that single form with their fine.
+     */
     const older = monthsAgo(1)
     vi.stubGlobal(
       'fetch',
@@ -459,8 +471,10 @@ describe('public submission form — ID selector', () => {
     render(<SubmissionForm members={MEMBERS} />)
     await pickMember(user, /আব্দুল ইসলাম/)
 
-    await waitFor(() => expect(screen.getByLabelText(/পরিমাণ/)).toHaveValue('700'))
-    expect(screen.getByRole('button', { name: /জমা দিন/ })).not.toBeDisabled()
+    await waitFor(() =>
+      expect(screen.getByText(/চাঁদার পরিমাণ এখনো নির্ধারণ করা হয়নি/)).toBeInTheDocument(),
+    )
+    expect(screen.getByRole('button', { name: /জমা দিন/ })).toBeDisabled()
   })
 
   it('switches the conditional fields with the payment medium', async () => {

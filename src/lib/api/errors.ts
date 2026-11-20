@@ -11,6 +11,8 @@ export type ErrorCode =
   | 'NOT_FOUND'
   | 'VALIDATION_FAILED'
   | 'DUPLICATE_SUBMISSION'
+  | 'PENDING_SUBMISSION_EXISTS'
+  | 'DUE_MONTH_CLOSED'
   | 'SUBMISSION_ALREADY_REVIEWED'
   | 'ALREADY_PAID'
   | 'CONFLICT'
@@ -70,8 +72,18 @@ export const duplicateSubmission = () =>
     'এই মাসের জন্য আপনার একটি আবেদন ইতিমধ্যে জমা আছে',
   )
 
+export const pendingSubmissionExists = () =>
+  conflict(
+    'PENDING_SUBMISSION_EXISTS',
+    'This member already has a submission awaiting review',
+    'আপনার একটি আবেদন এখনো যাচাইয়ের অপেক্ষায় আছে — সেটি অনুমোদন বা বাতিল হলে পরের আবেদন দেওয়া যাবে',
+  )
+
 /** The raw name of the partial unique index enforcing one submission per month. */
 export const ACTIVE_SUBMISSION_INDEX = 'payment_submissions_active_member_month_key'
+
+/** The raw name of the partial unique index allowing one unreviewed form each. */
+export const PENDING_SUBMISSION_INDEX = 'payment_submissions_one_pending_per_member'
 
 /**
  * Is this error the one-submission-per-month index firing?
@@ -83,6 +95,15 @@ export const ACTIVE_SUBMISSION_INDEX = 'payment_submissions_active_member_month_
  * layer reports it.
  */
 export function isActiveSubmissionConflict(error: unknown): boolean {
+  return namesIndex(error, ACTIVE_SUBMISSION_INDEX)
+}
+
+/** Is this error the one-unreviewed-form-per-member index firing? */
+export function isPendingSubmissionConflict(error: unknown): boolean {
+  return namesIndex(error, PENDING_SUBMISSION_INDEX)
+}
+
+function namesIndex(error: unknown, index: string): boolean {
   if (!error || typeof error !== 'object') return false
 
   const candidate = error as {
@@ -94,7 +115,7 @@ export function isActiveSubmissionConflict(error: unknown): boolean {
 
   const target = candidate.meta?.target ?? candidate.meta?.constraint
   const asText = Array.isArray(target) ? target.join(',') : String(target ?? '')
-  return asText.includes(ACTIVE_SUBMISSION_INDEX)
+  return asText.includes(index)
 }
 
 export function isUniqueViolation(error: unknown): boolean {

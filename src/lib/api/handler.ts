@@ -4,6 +4,8 @@ import {
   AppError,
   duplicateSubmission,
   isActiveSubmissionConflict,
+  isPendingSubmissionConflict,
+  pendingSubmissionExists,
   rateLimited,
   unauthorized,
   validationFailed,
@@ -134,6 +136,7 @@ export function withRoute<TBody = unknown>(
         )
       }
 
+      if (isPendingSubmissionConflict(error)) return errorResponse(pendingSubmissionExists())
       if (isActiveSubmissionConflict(error)) return errorResponse(duplicateSubmission())
 
       console.error('[api] unhandled error', error)

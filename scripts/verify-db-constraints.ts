@@ -15,7 +15,10 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
 })
 
-const REQUIRED_INDEXES = ['payment_submissions_active_member_month_key']
+const REQUIRED_INDEXES = [
+  'payment_submissions_active_member_month_key',
+  'payment_submissions_one_pending_per_member',
+]
 
 const REQUIRED_CHECKS = [
   'due_payments_amounts_non_negative',

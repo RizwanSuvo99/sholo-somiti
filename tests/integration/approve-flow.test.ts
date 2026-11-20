@@ -306,9 +306,12 @@ describe('approving a submission', () => {
     expect(december.amountPaidPaisa).toBe(0)
   })
 
-  it('leaves months claimed by another pending submission alone', async () => {
-    // That money is already spoken for; settling it here would take payment
-    // for the same month twice.
+  it('leaves months claimed by an earlier approved submission alone', async () => {
+    // That money is already spoken for; settling it here would take payment for
+    // the same month twice. A member can no longer have two *unreviewed* forms
+    // at once — one pending form each, enforced by
+    // payment_submissions_one_pending_per_member — so the case worth proving is
+    // the approved one, which is what NHSS-25024 actually hit.
     const admin = await makeAdmin()
     const member = await makeMember()
 
@@ -317,22 +320,36 @@ describe('approving a submission', () => {
     await generateDuePayments(NOVEMBER)
     await generateDuePayments(DECEMBER)
 
-    await makeSubmission(member.id, member.memberCode, NOVEMBER, {
+    const november = await makeSubmission(member.id, member.memberCode, NOVEMBER, {
       sendingDate: '2025-11-18',
       amountPaisa: DUE_PAISA,
     })
+    await approveSubmission(november.id, admin.id)
+
     const december = await makeSubmission(member.id, member.memberCode, DECEMBER, {
       sendingDate: '2025-12-18',
       amountPaisa: DUE_PAISA,
     })
-
     const result = await approveSubmission(december.id, admin.id)
 
+    // December only: November was settled by its own payment, not twice.
     expect(result.months.map((m) => m.dueMonth)).toEqual([12])
-    const november = await prisma.duePayment.findUniqueOrThrow({
+    const novemberRow = await prisma.duePayment.findUniqueOrThrow({
       where: { memberId_year_month: { memberId: member.id, year: 2025, month: 11 } },
     })
-    expect(november.status).toBe('PENDING')
+    expect(novemberRow.amountPaidPaisa).toBe(DUE_PAISA)
+  })
+
+  it('will not hold two unreviewed forms for one member', async () => {
+    const member = await makeMember()
+    await makeDueSetting(NOVEMBER, DUE_PAISA)
+    await makeDueSetting(DECEMBER, DUE_PAISA)
+
+    await makeSubmission(member.id, member.memberCode, NOVEMBER, { sendingDate: '2025-11-18' })
+
+    await expect(
+      makeSubmission(member.id, member.memberCode, DECEMBER, { sendingDate: '2025-12-18' }),
+    ).rejects.toMatchObject({ code: 'P2002' })
   })
 
   it('waives a fine the rollover levied while the payment sat unreviewed', async () => {

@@ -107,21 +107,30 @@ describe('one active submission per member per due month', () => {
     expect(await prisma.paymentSubmission.count()).toBe(2)
   })
 
-  it('does not constrain a different member or a different month', async () => {
+  it('does not constrain a different member', async () => {
     const first = await makeMember()
     const second = await makeMember()
 
     await createSubmission(submissionInput(first.memberCode))
     await createSubmission(submissionInput(second.memberCode))
 
-    await makeDueSetting({ dueYear: 2026, dueMonth: 3 }, 50_000)
-    await createSubmission({
-      ...submissionInput(first.memberCode),
-      dueMonth: 3,
-      dueYear: 2026,
-    })
+    expect(await prisma.paymentSubmission.count()).toBe(2)
+  })
 
-    expect(await prisma.paymentSubmission.count()).toBe(3)
+  it('no longer lets the same member file for an earlier month as well', async () => {
+    // This used to be allowed, and is how NHSS-25024 paid October twice: a
+    // November form that already covered October, plus a second form for
+    // October filed three minutes later. A closed month's arrears belong to the
+    // open cycle's form. See tests/integration/one-form-per-cycle.test.ts.
+    const member = await makeMember()
+    await createSubmission(submissionInput(member.memberCode))
+
+    await makeDueSetting({ dueYear: 2026, dueMonth: 3 }, 50_000)
+    await expect(
+      createSubmission({ ...submissionInput(member.memberCode), dueMonth: 3, dueYear: 2026 }),
+    ).rejects.toMatchObject({ code: 'DUE_MONTH_CLOSED' })
+
+    expect(await prisma.paymentSubmission.count()).toBe(1)
   })
 
   it('refuses a month the admin has not priced', async () => {

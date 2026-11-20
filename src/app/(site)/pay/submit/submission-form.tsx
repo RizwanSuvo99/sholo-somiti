@@ -58,7 +58,6 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
   const [name, setName] = useState('')
   const [lookup, setLookup] = useState<Lookup | null>(null)
   const [lookupState, setLookupState] = useState<'idle' | 'loading' | 'missing'>('idle')
-  const [selectedMonth, setSelectedMonth] = useState<string>('')
 
   const [medium, setMedium] = useState<string>('NPSB')
   const [screenshot, setScreenshot] = useState<UploadedImage | null>(null)
@@ -70,12 +69,18 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
   // picked, without waiting for the lookup to come back.
   const selectedMember = members.find((m) => m.memberCode === memberCode)
 
-  const chosen = lookup?.eligibleDueMonths.find(
-    (m) => `${m.dueYear}-${m.dueMonth}` === selectedMonth,
-  )
+  /**
+   * The month this form pays for: always the open cycle, never a choice.
+   *
+   * A closed month is not paid with its own late form — its arrears ride along
+   * in the breakdown below, oldest first. The server refuses anything else, so
+   * offering a choice here would only produce an error after the member had
+   * filled the whole form in. See createSubmission.
+   */
+  const chosen = lookup?.eligibleDueMonths.find((m) => m.isCurrent && !m.blocked) ?? null
 
   /**
-   * Everything this payment would clear: the chosen month and any earlier one
+   * Everything this payment would clear: the open cycle and any earlier month
    * still owing, each with its own ৳২০০ fine if its deadline has passed.
    *
    * A month with its own submission awaiting review is left out — that money is
@@ -121,7 +126,6 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
   async function onMemberSelected(code: string) {
     setMemberCode(code)
     setLookup(null)
-    setSelectedMonth('')
 
     // Fall back to the name from the dropdown straight away, so the field is
     // filled even if the lookup is slow or fails.
@@ -148,10 +152,6 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
       setLookup(result)
       setLookupState('idle')
       setName(result.member.name)
-
-      const open = result.eligibleDueMonths.filter((m: EligibleMonth) => !m.blocked)
-      const preferred = open.find((m: EligibleMonth) => m.isCurrent) ?? open[0]
-      setSelectedMonth(preferred ? `${preferred.dueYear}-${preferred.dueMonth}` : '')
     } catch {
       setLookupState('idle')
       setError('তথ্য যাচাই করা যায়নি — আবার চেষ্টা করুন')
@@ -168,7 +168,7 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
       return
     }
     if (!chosen) {
-      setError('কোন মাসের চাঁদা তা বেছে নিন')
+      setError('এখন জমা দেওয়া যাবে না')
       return
     }
     if (!sendingDate) {
@@ -224,8 +224,8 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
     }
   }
 
-  const openMonths = lookup?.eligibleDueMonths.filter((m) => !m.blocked) ?? []
-  const allBlocked = Boolean(lookup) && openMonths.length === 0
+  // Only the open cycle can be targeted, so only the open cycle can block.
+  const cannotSubmit = Boolean(lookup) && !chosen
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
@@ -304,7 +304,7 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
         <Alert tone="danger">এই আইডি নম্বরে কোনো সক্রিয় সদস্য পাওয়া যায়নি</Alert>
       )}
 
-      {allBlocked && (
+      {cannotSubmit && (
         <Alert tone="warn" title="এখন জমা দেওয়া যাবে না">
           <ul className="space-y-0.5">
             {(lookup?.eligibleDueMonths ?? []).map((month) => (
@@ -348,32 +348,19 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
         hint="ভবিষ্যতের তারিখ দেওয়া যাবে না"
       />
 
-      {/* The extra field: which month this pays for. */}
-      {lookup && !allBlocked && (
+      {/* Which month this pays for. Shown, not chosen. */}
+      {chosen && (
         <Field
-          label="কোন মাস পর্যন্ত চাঁদা দিচ্ছেন"
-          required
+          label="কোন মাসের চাঁদা"
           hint="আগের কোনো মাস বাকি থাকলে সেগুলোসহ মোট পরিমাণ নিচে দেখানো হবে — প্রতিটি বকেয়া মাসের জন্য ৳২০০ জরিমানা যুক্ত হয়।"
         >
-          <Select
-            value={selectedMonth}
-            onChange={(event) => setSelectedMonth(event.target.value)}
-          >
-            {lookup.eligibleDueMonths.map((month) => (
-              <option
-                key={`${month.dueYear}-${month.dueMonth}`}
-                value={`${month.dueYear}-${month.dueMonth}`}
-                disabled={month.blocked}
-              >
-                {month.label}
-                {month.blocked
-                  ? ` — ${month.blockedReason}`
-                  : month.amountPaisa !== null
-                    ? ` (${formatBDT(month.amountPaisa)})`
-                    : ''}
-              </option>
-            ))}
-          </Select>
+          <Input
+            readOnly
+            tabIndex={-1}
+            aria-readonly="true"
+            value={chosen.label}
+            className="cursor-not-allowed bg-surface text-muted"
+          />
         </Field>
       )}
 
@@ -466,7 +453,7 @@ export function SubmissionForm({ members }: { members: MemberOption[] }) {
         onChange={setScreenshot}
       />
 
-      <Button type="submit" className="w-full" disabled={pending || allBlocked || !lookup}>
+      <Button type="submit" className="w-full" disabled={pending || cannotSubmit || !lookup}>
         {pending ? 'জমা হচ্ছে…' : 'জমা দিন'}
       </Button>
 

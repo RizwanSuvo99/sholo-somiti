@@ -18,7 +18,12 @@ import {
   type OutstandingMonth,
 } from '@/lib/settlement'
 import { dueMonthLabel } from '@/lib/bn'
-import { conflict, duplicateSubmission, notFound } from '@/lib/api/errors'
+import {
+  conflict,
+  duplicateSubmission,
+  notFound,
+  pendingSubmissionExists,
+} from '@/lib/api/errors'
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
@@ -195,11 +200,30 @@ export async function createSubmission(input: CreateSubmissionInput) {
       ? { dueMonth: input.dueMonth, dueYear: input.dueYear }
       : derived
 
-  if (compareDueMonth(target, derived) > 0) {
+  // A form may only ever target the open cycle.
+  //
+  // A missed month is not paid with its own late form. One transfer settles the
+  // arrears, their fine and the current month together, oldest first, and the
+  // form quotes that combined total. Accepting a form for a closed month invites
+  // paying the same arrears twice: NHSS-25024 filed ৳10,200 for November — which
+  // already covered October — and then ৳7,200 for October three minutes later.
+  // Both were approved, and the second ৳7,200 landed as surplus other income,
+  // so the books showed ৳17,400 received against ৳10,200 actually sent.
+  //
+  // Only the future was guarded before, so a past month sailed straight through.
+  const direction = compareDueMonth(target, derived)
+  if (direction > 0) {
     throw conflict(
       'CONFLICT',
       'Cannot pay for a future due month',
       'ভবিষ্যতের মাসের চাঁদা এখন জমা দেওয়া যাবে না',
+    )
+  }
+  if (direction < 0) {
+    throw conflict(
+      'DUE_MONTH_CLOSED',
+      'That due month is closed; its arrears belong to the open cycle',
+      `${dueMonthLabel(target)} মাসের সময়সীমা শেষ হয়ে গেছে — বকেয়া থাকলে তা জরিমানাসহ ${dueMonthLabel(derived)} মাসের ফর্মেই যুক্ত হবে, আলাদা ফর্ম দেওয়ার দরকার নেই`,
     )
   }
 
@@ -230,19 +254,23 @@ export async function createSubmission(input: CreateSubmissionInput) {
     )
   }
 
-  // Layer 2 of the one-per-month rule: a clear message before the database has
-  // to reject it. Layer 3 (the partial unique index) is what actually holds
-  // under concurrency; this check can lose a race and that is fine.
-  const existing = await prisma.paymentSubmission.findFirst({
-    where: {
-      memberId: member.id,
-      dueYear: target.dueYear,
-      dueMonth: target.dueMonth,
-      status: { in: ['PENDING', 'APPROVED'] },
-    },
-    select: { id: true },
+  // Layer 2 of the one-form rules: a clear message before the database has to
+  // reject it. Layer 3 (the partial unique indexes) is what actually holds under
+  // concurrency; these checks can lose a race and that is fine.
+  const active = await prisma.paymentSubmission.findMany({
+    where: { memberId: member.id, status: { in: ['PENDING', 'APPROVED'] } },
+    select: { status: true, dueYear: true, dueMonth: true },
   })
-  if (existing) throw duplicateSubmission()
+
+  // Most specific message first: if this very month is already filed, say so.
+  if (active.some((row) => row.dueYear === target.dueYear && row.dueMonth === target.dueMonth)) {
+    throw duplicateSubmission()
+  }
+
+  // Otherwise, nothing new while something is still in the queue. Two unreviewed
+  // forms can be approved in either order, and whichever is approved second
+  // finds the months already settled and books its money as surplus.
+  if (active.some((row) => row.status === 'PENDING')) throw pendingSubmissionExists()
 
   return prisma.paymentSubmission.create({
     data: {

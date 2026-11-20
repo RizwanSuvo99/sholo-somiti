@@ -75,9 +75,18 @@ describe('monthly submission report', () => {
     expect(report.submittedCount).toBe(inside ? 1 : 0)
   })
 
-  it('gives a member one row per payment when they settle two months at once', async () => {
+  it('gives a member one row per payment when they pay two months in a cycle', async () => {
+    // Only one form may await review at a time, so the earlier one is approved
+    // here. The report still has to count the person once and the payments
+    // twice.
     const member = await makeMember()
-    await makeSubmission(member.id, member.memberCode, SEPTEMBER, { sendingDate: '2026-10-05' })
+    const september = await makeSubmission(member.id, member.memberCode, SEPTEMBER, {
+      sendingDate: '2026-10-05',
+    })
+    await prisma.paymentSubmission.update({
+      where: { id: september.id },
+      data: { status: 'APPROVED' },
+    })
     await makeSubmission(member.id, member.memberCode, OCTOBER, { sendingDate: '2026-10-05' })
 
     const report = await getSubmissionCycleReport(OCTOBER)
